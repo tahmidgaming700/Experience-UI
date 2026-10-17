@@ -1,4 +1,4 @@
-name: Experience UI Android Build
+name: Experience OS Converter Build
 
 on:
   push:
@@ -11,10 +11,10 @@ permissions:
 
 jobs:
   build:
-    name: Build Experience UI APKs
+    name: Build single APK
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -29,14 +29,14 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
-      - name: Install Android SDK packages
+      - name: Install Android SDK platform
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Build all debug APKs
-        run: gradle assembleDebug --no-daemon
-      - name: Upload APKs
+      - name: Build single application APK
+        run: gradle :app:assembleDebug --no-daemon
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: experience-ui-debug-apks
-          path: '**/build/outputs/apk/**/*.apk'
+          name: experience-os-converter-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
