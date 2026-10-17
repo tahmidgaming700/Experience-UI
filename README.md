@@ -1,27 +1,28 @@
-# Experience UI
+# Experience OS Converter
 
-Native Android application suite built with Kotlin, Jetpack Compose and Material 3.
+**One Android APK. One unified interface.** Experience OS Converter consolidates the planned Experience UI tools into one native Kotlin + Jetpack Compose application.
 
-## Modules
-- `core-ui` — shared Material 3 theme and reusable components
-- `launcher` — searchable app-grid concept
-- `dialer` — dial pad handing calls to Android's system dialler
-- `messages` — conversation-list UI foundation
-- `settings` — dashboard linking to protected Android settings
-- `setupwizard` — language, Wi-Fi, Pico AI, security and appearance setup flow
-- `converter` — device compatibility information and a safe ROM checklist
+## App sections
+- **Home:** device overview and shortcuts
+- **Tools:** dialler, SMS composer, Android settings and Pico AI integration guidance
+- **OS Converter:** device-specific compatibility and conversion planning for Huawei Y9 2019 (JKM-LX2) and Samsung Galaxy Tab S (SM-T805 / chagalllte)
+- **Setup:** language and appearance preferences, Wi-Fi and security settings hand-offs
+- **System:** recovery/ROM guidance and copyable diagnostics
 
-## Device targets
-- **Huawei Y9 2019 (JKM-LX2):** EMUI 9.1 / Android 9 application compatibility. This app baseline uses Android API 28.
-- **Samsung Galaxy Tab S (SM-T805, chagalllte):** Android 10 is the initial custom-ROM target; the companion applications target Android 9+ where possible.
+## Device goals
+- **Huawei Y9 2019 JKM-LX2:** app compatibility from Android 9 / EMUI 9.1 (API 28).
+- **Samsung Galaxy Tab S SM-T805 (chagalllte):** initial custom ROM planning target Android 10.
 
-The app modules and a bootable ROM are separate deliverables. A bootable ROM requires device-specific source, a compatible kernel and vendor files, device configuration, recovery and hardware testing. An APK cannot convert a stock phone/tablet into a custom ROM by itself.
+The application itself uses `minSdk 28` and `targetSdk 35`. The app's Android API compatibility does not imply that a ROM can be installed on a device.
 
 ## Build
-GitHub Actions builds debug APKs on pushes, pull requests and manual runs. Download the `experience-ui-debug-apks` artifact from a successful workflow run. For local builds, use JDK 17, Android SDK Platform 35 and Gradle 8.9, then run `gradle assembleDebug`.
+GitHub Actions builds **one APK** from the `:app` module and uploads it as the `experience-os-converter-debug-apk` artifact. Open Actions, choose the latest successful run, then download the artifact. Build locally with JDK 17, Android SDK Platform 35 and Gradle 8.9 using `gradle :app:assembleDebug`.
 
-## Safety and platform limits
-Android may require explicit user confirmation or special roles for default dialer/SMS apps and protected settings. RRO overlays, system sounds, boot animations and system partitions require ROM/system integration or a device-specific privileged workflow. The converter is a checklist and compatibility helper; it does not flash devices.
+## Important platform limits
+A normal APK cannot replace the OS, write system partitions, unlock a bootloader, silently flash recovery, install privileged RRO overlays, replace boot animations/system sounds, or bypass PIN/biometric protections. Those actions require a supported device-specific bootloader/recovery/ROM workflow and explicit user decisions. The app provides compatibility checks, planning, safe Android intents and diagnostics; it does not claim to perform privileged flashing.
 
 ## Pico AI
-The setup flow includes a Pico AI onboarding step but does not collect passwords or falsely claim to install the separate Pico AI app. Integrate your existing Pico AI app through a verified app-to-app intent or documented interface when its package/action is confirmed.
+The app provides an integration entry point and guidance for connecting an already-installed Pico AI app. Its package/action must be confirmed before a direct launch integration can be safely hard-coded. The app never asks for AI account passwords.
+
+## Security
+Only use firmware/ROM packages that match the exact device variant and region, with verified checksums and trusted signing. Back up important data first. Do not flash a JKM-LX2 package onto chagalllte or vice versa.
