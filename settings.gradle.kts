@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "ExperienceUI"
-include(":core-ui", ":launcher", ":dialer", ":messages", ":settings", ":setupwizard", ":converter")
+rootProject.name = "ExperienceOSConverter"
+include(":app")
