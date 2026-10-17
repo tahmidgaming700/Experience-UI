@@ -1,28 +1,44 @@
 # Experience OS Converter
 
-**One Android APK. One unified interface.** Experience OS Converter consolidates the planned Experience UI tools into one native Kotlin + Jetpack Compose application.
+**One APK · one unified interface.** Experience UI's launcher prompt, device conversion planner, setup guidance, and everyday tool hand-offs are being consolidated into the single native Kotlin + Jetpack Compose app in `:app`.
 
-## App sections
-- **Home:** device overview and shortcuts
-- **Tools:** dialler, SMS composer, Android settings and Pico AI integration guidance
-- **OS Converter:** device-specific compatibility and conversion planning for Huawei Y9 2019 (JKM-LX2) and Samsung Galaxy Tab S (SM-T805 / chagalllte)
-- **Setup:** language and appearance preferences, Wi-Fi and security settings hand-offs
-- **System:** recovery/ROM guidance and copyable diagnostics
+## Included screens
 
-## Device goals
-- **Huawei Y9 2019 JKM-LX2:** app compatibility from Android 9 / EMUI 9.1 (API 28).
-- **Samsung Galaxy Tab S SM-T805 (chagalllte):** initial custom ROM planning target Android 10.
+- **Home:** Android/device overview and quick actions.
+- **OS Converter:** target selection and device-specific ROM preparation checklist.
+- **Default apps:** prompts to make Experience UI the Home app and opens Android's default-app settings.
+- **Tools:** opens the system dialler, SMS composer, Android Settings, and this app's settings.
+- **Setup:** guided steps and safe hand-offs to protected Android settings.
 
-The application itself uses `minSdk 28` and `targetSdk 35`. The app's Android API compatibility does not imply that a ROM can be installed on a device.
+## Device targets
 
-## Build
-GitHub Actions builds **one APK** from the `:app` module and uploads it as the `experience-os-converter-debug-apk` artifact. Open Actions, choose the latest successful run, then download the artifact. Build locally with JDK 17, Android SDK Platform 35 and Gradle 8.9 using `gradle :app:assembleDebug`.
+- **Huawei Y9 2019 — JKM-LX2:** Android 9 / EMUI 9.1 (API 28) is the app's minimum compatibility baseline.
+- **Samsung Galaxy Tab S — SM-T805 / chagalllte:** Android 10 is the initial custom-ROM research target.
 
-## Important platform limits
-A normal APK cannot replace the OS, write system partitions, unlock a bootloader, silently flash recovery, install privileged RRO overlays, replace boot animations/system sounds, or bypass PIN/biometric protections. Those actions require a supported device-specific bootloader/recovery/ROM workflow and explicit user decisions. The app provides compatibility checks, planning, safe Android intents and diagnostics; it does not claim to perform privileged flashing.
+The app uses `minSdk 28`, `targetSdk 35`, JDK 17, Kotlin, and Jetpack Compose. Being installable on a device does **not** mean the app can convert that device's operating system.
+
+## Default-app prompts and limits
+
+The app registers as a Home/Launcher candidate and asks Android to show its official Home-role confirmation (Android 10+) or Home settings (Android 9). The user must approve the change.
+
+Phone and SMS defaults are different roles. The current build hands off calls and texts to the installed system apps; it is **not yet a full default dialler or default SMS handler**, so Android may not offer it for those roles. That requires implementing and testing the complete Android dialler/SMS role contracts, not just showing a prompt. No default is changed silently.
+
+## Build one APK
+
+GitHub Actions builds `:app:assembleDebug` and uploads the single APK as `experience-os-converter-debug-apk`. Open the repository's **Actions** tab, choose a successful run, and download its artifact. For a local build, use JDK 17, Android SDK Platform 35, Build Tools 35.0.0 and Gradle 8.9:
+
+```sh
+gradle :app:assembleDebug
+```
+
+The legacy module directories may remain in the repository for reference, but `settings.gradle.kts` includes only `:app`; the workflow builds one APK.
+
+## ROM conversion is not a one-tap operation
+
+A normal APK cannot replace Android itself, write protected system partitions, unlock a bootloader, silently flash a recovery, install privileged runtime resource overlays, or replace system boot assets. Those require a supported device-specific ROM/recovery workflow and appropriate privileges. This app currently provides planning, system prompts and safe intents; it does **not** claim to flash or install a ROM.
+
+For any ROM work, verify the exact model, regional variant, bootloader/recovery support, device tree, kernel and vendor files. Back up data and verify package checksums/signing. Never flash a JKM-LX2 package on `chagalllte`, or the reverse.
 
 ## Pico AI
-The app provides an integration entry point and guidance for connecting an already-installed Pico AI app. Its package/action must be confirmed before a direct launch integration can be safely hard-coded. The app never asks for AI account passwords.
 
-## Security
-Only use firmware/ROM packages that match the exact device variant and region, with verified checksums and trusted signing. Back up important data first. Do not flash a JKM-LX2 package onto chagalllte or vice versa.
+Direct launch integration stays unconfigured until Pico AI's installed package name and supported launch action are confirmed. The app never asks for AI account passwords.
