@@ -21,5 +21,5 @@ cp -f "$animation" vendor/experience/media/bootanimation.zip
 cp -f "$(dirname "$0")/experience_apps.mk" vendor/experience/experience_apps.mk
 
 echo "Prepared $(find vendor/experience/prebuilt -maxdepth 1 -name '*.apk' | wc -l) APKs."
-echo "Next: add '$(call inherit-product, vendor/experience/experience_apps.mk)' to the device product makefile for the exact target."
+echo "Next: add '\$(call inherit-product, vendor/experience/experience_apps.mk)' to the device product makefile for the exact target."
 echo "No ROM was built or flashed by this script."
