@@ -1,4 +1,4 @@
-name: Experience OS Converter Build
+name: Experience UI App Suite
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build single APK
+    name: Build separate Experience UI APKs
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,12 +31,37 @@ jobs:
           packages: platform-tools
       - name: Install Android SDK platform
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Build single application APK
-        run: gradle :app:assembleDebug --no-daemon
-      - name: Upload debug APK
+      - name: Build all app modules
+        run: gradle assembleDebug --no-daemon
+      - name: Collect separate APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/apks
+          for module in launcher setupwizard dialer messages contacts notes clock calendar calculator settings files gallery camera converter; do
+            apk="$module/build/outputs/apk/debug/$module-debug.apk"
+            if [ ! -f "$apk" ]; then
+              echo "Expected APK missing: $apk"
+              find "$module/build/outputs" -type f -name '*.apk' 2>/dev/null || true
+              exit 1
+            fi
+            cp "$apk" "dist/apks/experience-${module}-debug.apk"
+          done
+          ls -lh dist/apks
+      - name: Set up boot animation generator
+        run: python3 -m pip install --user Pillow
+      - name: Generate Experience UI boot animation
+        run: python3 bootanimation/generate_bootanimation.py
+      - name: Collect boot animation outputs
+        run: |
+          mkdir -p dist/bootanimation
+          cp bootanimation/bootanimation.zip dist/bootanimation/
+          cp bootanimation/experience-boot-preview.gif dist/bootanimation/
+          cp bootanimation/generate_bootanimation.py dist/bootanimation/
+      - name: Upload Experience UI app suite and boot animation
         uses: actions/upload-artifact@v4
         with:
-          name: experience-os-converter-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: experience-ui-app-suite-and-boot-animation
+          path: dist/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
