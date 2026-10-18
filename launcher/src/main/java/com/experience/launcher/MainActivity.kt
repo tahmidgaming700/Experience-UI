@@ -1,25 +1,21 @@
 package com.experience.launcher
 
-import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import android.os.Bundle
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.experience.coreui.ExperienceCard
 import com.experience.coreui.ExperienceScaffold
 import com.experience.coreui.ExperienceTheme
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,8 +23,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             ExperienceTheme {
                 var query by rememberSaveable { mutableStateOf("") }
-                val appNames = listOf("Phone", "Messages", "Settings", "Camera", "Gallery", "Pico AI", "Files", "Clock")
-                ExperienceScaffold("Experience UI", "A calmer home for everything") {
+                val launchableApps = remember {
+                    packageManager.queryIntentActivities(
+                        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0
+                    ).distinctBy { it.activityInfo.packageName }
+                        .sortedBy { it.loadLabel(packageManager).toString().lowercase() }
+                }
+                val filteredApps = launchableApps.filter {
+                    it.loadLabel(packageManager).toString().contains(query, ignoreCase = true)
+                }
+                ExperienceScaffold("Experience UI", "Your apps, in one place") {
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
@@ -36,29 +40,40 @@ class MainActivity : ComponentActivity() {
                         label = { Text("Search apps") },
                         singleLine = true
                     )
-                    Text("Apps", style = MaterialTheme.typography.titleMedium)
+                    Text("${filteredApps.size} apps", style = MaterialTheme.typography.titleMedium)
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(4),
+                        columns = GridCells.Adaptive(minSize = 84.dp),
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(appNames.filter { it.contains(query, ignoreCase = true) }) { app ->
-                            Card(shape = MaterialTheme.shapes.large) {
+                        items(filteredApps, key = { it.activityInfo.packageName }) { app ->
+                            Card(
+                                onClick = {
+                                    val launchIntent = packageManager.getLaunchIntentForPackage(app.activityInfo.packageName)
+                                    if (launchIntent != null) runCatching { startActivity(launchIntent) }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large
+                            ) {
                                 Column(
-                                    Modifier.fillMaxWidth().padding(vertical = 18.dp, horizontal = 4.dp),
+                                    Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 4.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Text(app.take(1), style = MaterialTheme.typography.headlineMedium,
+                                    Text(app.loadLabel(packageManager).toString().take(1),
+                                        style = MaterialTheme.typography.headlineMedium,
                                         color = MaterialTheme.colorScheme.primary)
                                     Spacer(Modifier.height(6.dp))
-                                    Text(app, style = MaterialTheme.typography.labelSmall)
+                                    Text(app.loadLabel(packageManager).toString(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 2)
                                 }
                             }
                         }
                     }
-                    Text("Launcher foundation: live app discovery, widgets and gesture navigation are later integration milestones.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Long-term milestones: widgets, app icons, gestures and system launcher integration.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
