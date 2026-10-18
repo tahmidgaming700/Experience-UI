@@ -1,44 +1,75 @@
-# Experience OS Converter
+# Experience UI
 
-**One APK · one unified interface.** Experience UI's launcher prompt, device conversion planner, setup guidance, and everyday tool hand-offs are being consolidated into the single native Kotlin + Jetpack Compose app in `:app`.
+**A modular Android app suite for the Experience UI ROM project.** Each core experience is a separate installable APK, sharing a Material 3 design system. GitHub Actions builds the app suite and generates the Experience UI boot animation.
 
-## Included screens
+## Apps in this milestone
 
-- **Home:** Android/device overview and quick actions.
-- **OS Converter:** target selection and device-specific ROM preparation checklist.
-- **Default apps:** prompts to make Experience UI the Home app and opens Android's default-app settings.
-- **Tools:** opens the system dialler, SMS composer, Android Settings, and this app's settings.
-- **Setup:** guided steps and safe hand-offs to protected Android settings.
+| APK / module | Current scope |
+|---|---|
+| Launcher | Searchable app grid; launcher role candidate; app launch integration is being expanded |
+| Setup Wizard | Guided first-run steps, saved language/appearance preferences, links to protected Android setup |
+| Phone / Dialer | Number pad and safe hand-off to the system dialler |
+| Messages | Conversation UI foundation; SMS provider/default-SMS role integration remains future work |
+| Contacts | Opens the device's contacts provider |
+| Notes | Simple note saved locally on the device |
+| Clock | Shows current time and opens system alarms/timer |
+| Calendar | Opens calendar and hands off event creation to a calendar provider |
+| Calculator | Basic two-number arithmetic |
+| Settings | Shortcuts to Android network, display, security, apps and device information settings |
+| Files | Android document picker |
+| Gallery | Android photo/video picker |
+| Camera | Opens the installed camera app |
+| OS Converter | Device-specific ROM planning checklist; it does not flash firmware |
+
+Shared UI lives in `:core-ui`. These are **early app foundations**, not yet a complete replacement for every Google/Samsung system application. Features requiring privileged system APIs, a complete dialler/SMS role implementation, camera hardware integration, calendar/contact databases, media indexing, sync, or extensive device testing are clearly marked as follow-up work.
 
 ## Device targets
 
-- **Huawei Y9 2019 — JKM-LX2:** Android 9 / EMUI 9.1 (API 28) is the app's minimum compatibility baseline.
-- **Samsung Galaxy Tab S — SM-T805 / chagalllte:** Android 10 is the initial custom-ROM research target.
+- **Huawei Y9 2019 — JKM-LX2:** Android 9 / EMUI 9.1 (API 28) is the app compatibility baseline.
+- **Samsung Galaxy Tab S 10.5 — SM-T805 / chagalllte:** Android 10 is the initial ROM research target.
 
-The app uses `minSdk 28`, `targetSdk 35`, JDK 17, Kotlin, and Jetpack Compose. Being installable on a device does **not** mean the app can convert that device's operating system.
+An app that installs on a device does not imply that a ROM can be installed on it. ROM work must match the exact device variant, bootloader, recovery, kernel, vendor files and partition layout.
 
-## Default-app prompts and limits
+## Download built APKs
 
-The app registers as a Home/Launcher candidate and asks Android to show its official Home-role confirmation (Android 10+) or Home settings (Android 9). The user must approve the change.
+1. Open [GitHub Actions](https://github.com/tahmidgaming700/Experience-UI/actions).
+2. Open the latest successful **Experience UI App Suite** run.
+3. Download the artifact named `experience-ui-app-suite-and-boot-animation`.
+4. The archive contains separate APKs in `apks/` and `bootanimation.zip` plus a GIF preview and the generator in `bootanimation/`.
 
-Phone and SMS defaults are different roles. The current build hands off calls and texts to the installed system apps; it is **not yet a full default dialler or default SMS handler**, so Android may not offer it for those roles. That requires implementing and testing the complete Android dialler/SMS role contracts, not just showing a prompt. No default is changed silently.
+These are debug-signed development APKs. Android may require you to allow installation from your chosen file manager. Do not install them over unrelated apps with the same package name/signing key.
 
-## Build one APK
+## Build locally
 
-GitHub Actions builds `:app:assembleDebug` and uploads the single APK as `experience-os-converter-debug-apk`. Open the repository's **Actions** tab, choose a successful run, and download its artifact. For a local build, use JDK 17, Android SDK Platform 35, Build Tools 35.0.0 and Gradle 8.9:
+Requirements: JDK 17, Android SDK Platform 35, Build Tools 35.0.0 and Gradle 8.9.
 
 ```sh
-gradle :app:assembleDebug
+gradle assembleDebug
 ```
 
-The legacy module directories may remain in the repository for reference, but `settings.gradle.kts` includes only `:app`; the workflow builds one APK.
+To generate the boot animation locally:
 
-## ROM conversion is not a one-tap operation
+```sh
+python3 -m pip install Pillow
+python3 bootanimation/generate_bootanimation.py
+```
 
-A normal APK cannot replace Android itself, write protected system partitions, unlock a bootloader, silently flash a recovery, install privileged runtime resource overlays, or replace system boot assets. Those require a supported device-specific ROM/recovery workflow and appropriate privileges. This app currently provides planning, system prompts and safe intents; it does **not** claim to flash or install a ROM.
+The generator creates `bootanimation/bootanimation.zip` and `bootanimation/experience-boot-preview.gif`. The animation is designed for a 2560×1600 target such as the Tab S 10.5; review it on-device before integrating into a ROM.
 
-For any ROM work, verify the exact model, regional variant, bootloader/recovery support, device tree, kernel and vendor files. Back up data and verify package checksums/signing. Never flash a JKM-LX2 package on `chagalllte`, or the reverse.
+## Integrating apps into LineageOS
+
+For a maintained ROM build, the recommended approach is to add each app to the LineageOS source tree and build it with the ROM, rather than manually repacking a signed OTA ZIP. An ordinary APK cannot silently replace system apps or write protected partitions. A boot animation generally belongs at `/system/media/bootanimation.zip` or the appropriate product/system partition path for that ROM; the exact destination depends on the device and ROM build.
+
+Before changing a ROM ZIP, inspect its structure, verify the checksum and confirm the package matches `chagalllte`. A repacked OTA may fail signature verification, and an incorrect image can make the tablet unbootable. Keep an untouched copy of the original package and a known-good recovery route.
+
+## Safety and scope
+
+- The current app builds are not privileged system apps.
+- The apps do not unlock bootloaders, bypass screen locks, or flash ROMs.
+- The dialler and SMS screens are not yet complete replacements for the system dialler/SMS handler.
+- Do not mix firmware or ROM packages for the Huawei JKM-LX2 and Samsung chagalllte.
+- Verify ROM signatures/checksums and back up personal data before any ROM experiment.
 
 ## Pico AI
 
-Direct launch integration stays unconfigured until Pico AI's installed package name and supported launch action are confirmed. The app never asks for AI account passwords.
+Pico AI integration should be wired only after its actual installed package name and supported launch interface are confirmed. Do not embed account credentials in the app or repository.
