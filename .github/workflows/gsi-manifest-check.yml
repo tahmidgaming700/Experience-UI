@@ -1,0 +1,28 @@
+name: GSI Manifest Check
+
+on:
+  push:
+    paths:
+      - "gsi/**"
+      - ".github/workflows/gsi-manifest-check.yml"
+  pull_request:
+    paths:
+      - "gsi/**"
+      - ".github/workflows/gsi-manifest-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate target manifest
+        run: python3 gsi/scripts/validate_manifest.py
