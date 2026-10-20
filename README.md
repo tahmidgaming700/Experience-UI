@@ -23,6 +23,17 @@
 
 Shared UI lives in `:core-ui`. These are **early app foundations**, not yet a complete replacement for every Google/Samsung system application. Features requiring privileged system APIs, a complete dialler/SMS role implementation, camera hardware integration, calendar/contact databases, media indexing, sync, or extensive device testing are clearly marked as follow-up work.
 
+## GSI edition
+
+The repository now includes a **LineageOS-derived GSI customization-layer plan** under [`gsi/`](gsi/README.md), including a target manifest and a GitHub Actions metadata validation workflow.
+
+- Huawei Y9 2019 (JKM-LX2): research-only; bootloader access and GSI compatibility are unconfirmed.
+- Samsung Galaxy Tab S 10.5 (SM-T805 / chagalllte): research-only; kernel/vendor compatibility must be established.
+- No flashable GSI is produced yet. A GSI is a generic system image, not a complete device-specific ROM or a substitute for a compatible kernel/vendor stack.
+- The CI workflow validates metadata only; it does not build Android or certify device bootability.
+
+See [GSI build status](gsi/BUILD_STATUS.md) before attempting any device modification.
+
 ## Device targets
 
 - **Huawei Y9 2019 — JKM-LX2:** Android 9 / EMUI 9.1 (API 28) is the app compatibility baseline.
