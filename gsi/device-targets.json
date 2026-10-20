@@ -1,0 +1,39 @@
+{
+  "project": "Experience UI",
+  "format_version": 1,
+  "base": {
+    "kind": "LineageOS-derived GSI",
+    "image_url": null,
+    "sha256": null,
+    "verified": false
+  },
+  "targets": [
+    {
+      "id": "huawei-jkm-lx2",
+      "name": "Huawei Y9 2019",
+      "model": "JKM-LX2",
+      "soc": "Kirin 710",
+      "current_firmware": "EMUI 9.1.0.366",
+      "treble_enabled": null,
+      "abi": null,
+      "partition_layout": null,
+      "bootloader_unlock_confirmed": false,
+      "status": "research-only",
+      "flash_allowed": false,
+      "notes": "Collect read-only properties and establish legitimate bootloader access before evaluating any GSI."
+    },
+    {
+      "id": "samsung-chagalllte",
+      "name": "Samsung Galaxy Tab S 10.5",
+      "model": "SM-T805",
+      "codename": "chagalllte",
+      "treble_enabled": null,
+      "abi": null,
+      "partition_layout": null,
+      "bootloader_unlock_confirmed": null,
+      "status": "research-only",
+      "flash_allowed": false,
+      "notes": "Legacy device. Validate kernel/vendor compatibility; do not assume modern GSI support."
+    }
+  ]
+}
