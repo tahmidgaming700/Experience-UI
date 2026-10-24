@@ -222,15 +222,12 @@ private fun AppPanel(
                             .background(Brush.linearGradient(listOf(tint, tint.copy(alpha = .72f)))),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (app != null) {
-                            androidx.compose.foundation.Image(
-                                painter = androidx.compose.ui.graphics.painter.PainterPlaceholder(app, packageManager),
-                                contentDescription = name,
-                                modifier = Modifier.fillMaxSize().padding(13.dp)
-                            )
-                        } else {
-                            Text(name.take(1), color = Color(0xFF17345F), fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                        }
+                        Text(
+                            name.take(1).uppercase(),
+                            color = Color(0xFF17345F),
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(name, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
