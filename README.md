@@ -6,7 +6,7 @@
 
 | APK / module | Current scope |
 |---|---|
-| Launcher | Searchable app grid; launcher role candidate; app launch integration is being expanded |
+| Launcher | Blue glass-panel home screen inspired by the supplied concept, app shortcuts, search/filter, date/time card, and launchable app grid; weather data provider and real app-icon rendering remain follow-up work |
 | Setup Wizard | Guided first-run steps, saved language/appearance preferences, links to protected Android setup |
 | Phone / Dialer | Number pad and safe hand-off to the system dialler |
 | Messages | Conversation UI foundation; SMS provider/default-SMS role integration remains future work |
@@ -22,6 +22,10 @@
 | OS Converter | Device-specific ROM planning checklist; it does not flash firmware |
 
 Shared UI lives in `:core-ui`. These are **early app foundations**, not yet a complete replacement for every Google/Samsung system application. Features requiring privileged system APIs, a complete dialler/SMS role implementation, camera hardware integration, calendar/contact databases, media indexing, sync, or extensive device testing are clearly marked as follow-up work.
+
+## Experience Launcher preview
+
+The launcher home screen now uses a deep-blue gradient wallpaper, translucent rounded app panels (Quick Apps, My Apps, Quick Tools), a searchable app area, and a date/time card. It discovers launchable apps installed on the device and launches them where Android permits. The weather area is an honest placeholder until a weather provider is integrated; it does not claim to show live conditions. This is an installable launcher app, not a privileged replacement for the entire Android system UI.
 
 ## GSI edition
 
