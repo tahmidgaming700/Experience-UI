@@ -45,13 +45,17 @@ jobs:
           echo "$SDK/platform-tools" >> "$GITHUB_PATH"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-      - name: Build Experience UI launcher
+      - name: Build Experience UI app suite
         run: |
           set -euxo pipefail
-          gradle --no-daemon :launcher:assembleDebug
-          test -s launcher/build/outputs/apk/debug/launcher-debug.apk
-          mkdir -p out
-          cp launcher/build/outputs/apk/debug/launcher-debug.apk out/ExperienceLauncher.apk
+          gradle --no-daemon assembleDebug
+          mkdir -p out/apks
+          for module in launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter app; do
+            apk="$module/build/outputs/apk/debug/$module-debug.apk"
+            test -s "$apk"
+            cp "$apk" "out/apks/Experience-$module.apk"
+          done
+          cp out/apks/Experience-launcher.apk out/ExperienceLauncher.apk
       - name: Generate Experience UI boot animation
         run: |
           set -euxo pipefail
@@ -99,8 +103,29 @@ jobs:
           VARIANT: \${{ github.event.inputs.variant || 'vanilla' }}
         run: |
           set -euxo pipefail
-          sudo mkdir -p mountpoint/system/app/ExperienceLauncher
-          sudo install -m 0644 out/ExperienceLauncher.apk mountpoint/system/app/ExperienceLauncher/ExperienceLauncher.apk
+          for apk in out/apks/Experience-*.apk; do
+            module="$(basename "$apk" .apk | sed 's/^Experience-//')"
+            case "$module" in
+              launcher) appdir="ExperienceLauncher" ;;
+              settings) appdir="ExperienceSettings" ;;
+              setupwizard) appdir="ExperienceSetupWizard" ;;
+              dialer) appdir="ExperienceDialer" ;;
+              messages) appdir="ExperienceMessages" ;;
+              contacts) appdir="ExperienceContacts" ;;
+              notes) appdir="ExperienceNotes" ;;
+              clock) appdir="ExperienceClock" ;;
+              calendar) appdir="ExperienceCalendar" ;;
+              calculator) appdir="ExperienceCalculator" ;;
+              files) appdir="ExperienceFiles" ;;
+              gallery) appdir="ExperienceGallery" ;;
+              camera) appdir="ExperienceCamera" ;;
+              converter) appdir="ExperienceConverter" ;;
+              app) appdir="ExperienceOSConverter" ;;
+              *) echo "Unexpected APK module: $module" >&2; exit 1 ;;
+            esac
+            sudo mkdir -p "mountpoint/system/app/$appdir"
+            sudo install -m 0644 "$apk" "mountpoint/system/app/$appdir/$appdir.apk"
+          done
           sudo mkdir -p mountpoint/system/media
           sudo install -m 0644 out/bootanimation.zip mountpoint/system/media/bootanimation.zip
           sudo mkdir -p mountpoint/etc/experience-ui
@@ -110,8 +135,8 @@ jobs:
           Variant: $VARIANT
           Architecture: arm64
           Partition family: b (A/B / system-as-root GSI convention)
-          Integrated components: launcher APK and boot animation only
-          SystemUI, Settings, framework overlays and device HALs are not replaced by this repack.
+          Integrated components: Experience UI launcher and companion app suite plus boot animation
+          This is an application integration image, not a complete replacement SystemUI/framework ROM.
           Not QEMU-boot-tested and not device-tested. Do not flash until compatibility is verified.
           EOF
           sudo sync
@@ -132,6 +157,7 @@ jobs:
             out/ExperienceUI.sha256
             out/base-image.sha256
             out/ExperienceLauncher.apk
+            out/apks/*.apk
             out/bootanimation.zip
           if-no-files-found: error
           retention-days: 7
