@@ -37,6 +37,14 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK platform
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses >/dev/null || true
+
       - name: Build Experience UI launcher
         run: |
           set -euxo pipefail
@@ -48,8 +56,9 @@ jobs:
       - name: Generate Experience UI boot animation
         run: |
           set -euxo pipefail
-          python3 -m pip install --user pillow
-          python3 bootanimation/generate_bootanimation.py
+          python3 -m venv .venv
+          .venv/bin/pip install pillow
+          .venv/bin/python bootanimation/generate_bootanimation.py
           test -s bootanimation/bootanimation.zip
           cp bootanimation/bootanimation.zip out/bootanimation.zip
 
