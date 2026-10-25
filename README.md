@@ -6,8 +6,8 @@
 
 | APK / module | Current scope |
 |---|---|
-| Launcher | Blue glass-panel home screen inspired by the supplied concept, app shortcuts, search/filter, date/time card, and launchable app grid; weather data provider and real app-icon rendering remain follow-up work |
-| Setup Wizard | Guided first-run steps, saved language/appearance preferences, links to protected Android setup |
+| Launcher | Blue glass-panel home screen, real installed-app icons, app shortcuts, search/filter, date/time card and launchable app grid; live weather remains follow-up work |
+| Setup Wizard | Nine-step first-run flow: introduction, language, region, Wi-Fi, data migration choice, Experience Account, Google services, appearance and finish; account/migration screens are honest hand-offs/placeholders until integrated into a ROM |
 | Phone / Dialer | Number pad and safe hand-off to the system dialler |
 | Messages | Conversation UI foundation; SMS provider/default-SMS role integration remains future work |
 | Contacts | Opens the device's contacts provider |
@@ -27,9 +27,9 @@ Shared UI lives in `:core-ui`. These are **early app foundations**, not yet a co
 
 The launcher home screen now uses a deep-blue gradient wallpaper, translucent rounded app panels (Quick Apps, My Apps, Quick Tools), a searchable app area, and a date/time card. It discovers launchable apps installed on the device and launches them where Android permits. The weather area is an honest placeholder until a weather provider is integrated; it does not claim to show live conditions. This is an installable launcher app, not a privileged replacement for the entire Android system UI.
 
-## GSI edition
+## Boot animation and setup flow\n\nThe boot animation generator now follows the eight-stage storyboard supplied for Experience UI: abstract mark stages, a Harmony wordmark stage, the Experience UI wordmark, and a final “powered by Android” frame. It creates a 1080×1920 animation plus a small GIF preview. Review the generated artifact before integrating it into a ROM.\n\nThe Setup Wizard now has a nine-step first-run flow and stores selected preferences locally. Wi-Fi and Google account steps hand off to Android settings. Data migration and Experience Account are not yet system-integrated services, and Google Apps are not installed by selecting the Google option.\n\n## GSI edition
 
-The repository now includes a **LineageOS-derived GSI customization-layer plan** under [`gsi/`](gsi/README.md), including a target manifest and a GitHub Actions metadata validation workflow.
+The repository now includes a **LineageOS-derived GSI build plan** under [`gsi/`](gsi/README.md), including [`BUILD_GSI.md`](gsi/BUILD_GSI.md), a target manifest and a GitHub Actions metadata validation workflow.
 
 - Huawei Y9 2019 (JKM-LX2): research-only; bootloader access and GSI compatibility are unconfirmed.
 - Samsung Galaxy Tab S 10.5 (SM-T805 / chagalllte): research-only; kernel/vendor compatibility must be established.
