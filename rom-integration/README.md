@@ -1,33 +1,40 @@
-# LineageOS integration notes
+# Experience UI source integration
 
-This is a source-build integration template, not a script that flashes or repacks a downloaded OTA ZIP.
+This integration installs the Experience UI app suite as ordinary, non-privileged system apps in a LineageOS-derived Android source build. It also installs the Experience UI boot animation and adds separate `ro.experience.ui.*` identity properties. It deliberately does not spoof the upstream LineageOS build fingerprint, security patch level, signing identity, or official build number.
 
-## Important device check
+## What this does and does not do
 
-The LineageOS device wiki currently lists **SM-T805 / chagalllte** with LineageOS 14.1 (Android 7.1) as its version, while newer Android versions may exist as third-party builds. Do not assume an arbitrary Android 10 ZIP is compatible. Confirm the source, exact model, required bootloader/recovery and the ROM's build instructions before using it. Official device reference: https://wiki.lineageos.org/devices/chagalllte/
+- Adds the Experience launcher and companion APKs to the system image at compile time.
+- Adds Experience UI build metadata while preserving the actual base ROM identity.
+- Does **not** replace Android SystemUI, framework, SettingsProvider, permissions policy, device HALs, kernel, boot image, or recovery. The Experience Settings app is an app, not a replacement for all platform Settings.
+- Debug-signed APKs are not privileged and should remain under `system/app`, not `priv-app`.
 
 ## Prepare the source tree
 
-From the root of a matching LineageOS source checkout, create:
+Build the repository's app suite and boot animation using the Experience UI app-suite workflow, then extract its artifact. The artifact contains `apks/Experience-*.apk` and `bootanimation/bootanimation.zip`.
 
-- `vendor/experience/prebuilt/` — put the APKs from the GitHub Actions artifact here.
-- `vendor/experience/media/bootanimation.zip` — put the generated animation here.
-- Copy `experience_apps.mk` to `vendor/experience/experience_apps.mk`.
+From the root of a matching LineageOS GSI source checkout:
 
-Then add this line to the **device product makefile for the exact target** (the file name differs by branch/device):
-
-```make
-$(call inherit-product, vendor/experience/experience_apps.mk)
+```bash
+mkdir -p vendor/experience/prebuilt vendor/experience/media
+cp /path/to/artifact/apks/Experience-*.apk vendor/experience/prebuilt/
+cp /path/to/artifact/bootanimation/bootanimation.zip vendor/experience/media/
+cp /path/to/Experience-UI/rom-integration/Android.mk vendor/experience/Android.mk
+cp /path/to/Experience-UI/rom-integration/experience.mk vendor/experience/experience.mk
 ```
 
-Build the ROM using the matching LineageOS branch's documented build instructions. The makefile installs the Experience APKs as ordinary system apps and places the animation at `/system/media/bootanimation.zip`.
+Add the following to the product makefile actually inherited by the chosen lunch target (verify its path in the checked-out source branch):
 
-## Keep stock apps initially
+```make
+include vendor/experience/experience.mk
+```
 
-Do not remove the ROM's existing launcher, dialler, SMS, contacts, calendar, camera, gallery or file manager yet. Several Experience apps are currently starter implementations that delegate to existing Android apps; the messages and dialler apps are not complete default-role replacements. Removing the original apps too early could leave the ROM without working core functions. Test boot, app launching, calls, SMS, contacts, camera, storage, alarms and recovery before considering removal.
+The prebuilt modules are defined by `vendor/experience/Android.mk`. Keep the upstream stock launcher and core apps until each Experience app has been tested for all default-role contracts and platform permissions.
 
-These APKs are debug-signed and not privileged. Do not put them in `priv-app` or grant privileged permissions without implementing and reviewing the required permission allowlists and Android role contracts.
+## A/B and system-as-root
 
-## Boot animation
+The intended GSI build family is ARM64 A/B/system-as-root, using the branch's verified `lineage_arm64_bvN4-bp4a-userdebug` or `lineage_arm64_bgN4-bp4a-userdebug` lunch target. Target naming is upstream-specific; verify it exists before building. A GSI system image is not a complete device ROM and cannot supply a compatible kernel/vendor image for a legacy device by itself.
 
-The generated ZIP contains `desc.txt` and sequential PNG frames in `part0/`. It is stored without ZIP compression as expected by Android boot animation loading. Preview and test it before flashing; screen scaling and boot timing can vary across builds.
+## Identity and safety
+
+Only `ro.experience.ui.*` values are changed. The upstream `ro.build.fingerprint`, build ID, security patch level, and signing are preserved to avoid misrepresenting a community build as an official LineageOS release. Never flash until the exact target's Treble/VNDK, ABI, partition layout, bootloader, vendor and recovery compatibility are verified.
