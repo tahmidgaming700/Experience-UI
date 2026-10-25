@@ -1,5 +1,4 @@
 name: Experience UI GSI Repack
-
 on:
   workflow_dispatch:
     inputs:
@@ -7,17 +6,13 @@ on:
         description: "Andy Yan base GSI variant"
         required: true
         type: choice
-        options:
-          - vanilla
-          - gapps
+        options: [vanilla, gapps]
         default: vanilla
   push:
     paths:
       - ".github/workflows/experience-gsi-repack.yml"
-
 permissions:
   contents: read
-
 jobs:
   repack:
     runs-on: ubuntu-24.04
@@ -25,26 +20,31 @@ jobs:
     steps:
       - name: Checkout Experience UI
         uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK platform
+      - name: Configure preinstalled Android SDK
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-          yes | sdkmanager --licenses >/dev/null || true
-
+          set -euxo pipefail
+          SDK="$ANDROID_HOME"
+          test -d "$SDK"
+          if [ -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          elif [ -x "$SDK/cmdline-tools/16.0/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK/cmdline-tools/16.0/bin/sdkmanager"
+          else
+            echo "No usable sdkmanager found under $SDK" >&2
+            exit 1
+          fi
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Build Experience UI launcher
         run: |
           set -euxo pipefail
@@ -52,7 +52,6 @@ jobs:
           test -s launcher/build/outputs/apk/debug/launcher-debug.apk
           mkdir -p out
           cp launcher/build/outputs/apk/debug/launcher-debug.apk out/ExperienceLauncher.apk
-
       - name: Generate Experience UI boot animation
         run: |
           set -euxo pipefail
@@ -61,15 +60,13 @@ jobs:
           .venv/bin/python bootanimation/generate_bootanimation.py
           test -s bootanimation/bootanimation.zip
           cp bootanimation/bootanimation.zip out/bootanimation.zip
-
       - name: Install image tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y android-sdk-libsparse-utils e2fsprogs gzip wget file
-
+          sudo apt-get install -y android-sdk-libsparse-utils e2fsprogs gzip wget file qemu-utils
       - name: Download Andy Yan base GSI
         env:
-          VARIANT: ${{ github.event.inputs.variant || 'vanilla' }}
+          VARIANT: \${{ github.event.inputs.variant || 'vanilla' }}
         run: |
           set -euxo pipefail
           DIR="lineage-21-pre-qpr2-td"
@@ -84,7 +81,6 @@ jobs:
           gzip -dc base.img.gz > base.img
           file base.img
           sha256sum base.img | tee out/base-image.sha256
-
       - name: Expand and validate filesystem
         run: |
           set -euxo pipefail
@@ -98,10 +94,9 @@ jobs:
           e2fsck -fn system.raw.img
           mkdir -p mountpoint
           sudo mount -o loop,rw system.raw.img mountpoint
-
-      - name: Integrate Experience UI components
+      - name: Integrate current Experience UI components
         env:
-          VARIANT: ${{ github.event.inputs.variant || 'vanilla' }}
+          VARIANT: \${{ github.event.inputs.variant || 'vanilla' }}
         run: |
           set -euxo pipefail
           sudo mkdir -p mountpoint/system/app/ExperienceLauncher
@@ -115,8 +110,9 @@ jobs:
           Variant: $VARIANT
           Architecture: arm64
           Partition family: b (A/B / system-as-root GSI convention)
-          Integrated components: Experience UI launcher APK and boot animation
-          Not device-tested. Do not flash unless device compatibility is independently verified.
+          Integrated components: launcher APK and boot animation only
+          SystemUI, Settings, framework overlays and device HALs are not replaced by this repack.
+          Not QEMU-boot-tested and not device-tested. Do not flash until compatibility is verified.
           EOF
           sudo sync
           sudo umount mountpoint
@@ -124,8 +120,9 @@ jobs:
           resize2fs -M system.raw.img
           mv system.raw.img out/ExperienceUI-arm64-experimental.img
           file out/ExperienceUI-arm64-experimental.img
+          qemu-img info out/ExperienceUI-arm64-experimental.img
+          e2fsck -fn out/ExperienceUI-arm64-experimental.img
           sha256sum out/ExperienceUI-arm64-experimental.img | tee out/ExperienceUI.sha256
-
       - name: Publish experimental image artifact
         uses: actions/upload-artifact@v4
         with:
