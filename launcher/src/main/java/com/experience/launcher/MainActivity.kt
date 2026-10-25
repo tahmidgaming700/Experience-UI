@@ -21,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -174,7 +176,14 @@ private fun ExperienceHome(
                                 .background(Brush.linearGradient(listOf(Color(0xFFDAE9FF), Color(0xFF8CB9F8)))),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(label.take(1).uppercase(), color = Color(0xFF173C7C), fontSize = 25.sp, fontWeight = FontWeight.Bold)
+                            val icon = remember(app.activityInfo.packageName) {
+                            app.loadIcon(packageManager).toBitmap(96, 96).asImageBitmap()
+                        }
+                        androidx.compose.foundation.Image(
+                            bitmap = icon,
+                            contentDescription = label,
+                            modifier = Modifier.fillMaxSize().padding(8.dp)
+                        )
                         }
                         Spacer(Modifier.height(5.dp))
                         Text(label, color = Color.White, fontSize = 11.sp, maxLines = 2,
@@ -222,12 +231,18 @@ private fun AppPanel(
                             .background(Brush.linearGradient(listOf(tint, tint.copy(alpha = .72f)))),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            name.take(1).uppercase(),
-                            color = Color(0xFF17345F),
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        if (app != null) {
+                            val icon = remember(app.activityInfo.packageName) {
+                                app.loadIcon(packageManager).toBitmap(96, 96).asImageBitmap()
+                            }
+                            androidx.compose.foundation.Image(
+                                bitmap = icon,
+                                contentDescription = name,
+                                modifier = Modifier.fillMaxSize().padding(11.dp)
+                            )
+                        } else {
+                            Text(name.take(1).uppercase(), color = Color(0xFF17345F), fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(name, color = Color.White, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
