@@ -1,0 +1,115 @@
+name: Build Experience UI GSI variants
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_vanilla:
+        description: Build ARM64 vanilla GSI (no GApps, no root)
+        type: boolean
+        default: true
+      build_gapps:
+        description: Build ARM64 GApps GSI (no root)
+        type: boolean
+        default: true
+  push:
+    paths:
+      - ".github/workflows/build-gsi.yml"
+      - "gsi/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build-gsi:
+    # This label is intentional: a full Android source build needs a dedicated
+    # Linux host with hundreds of GB free, not a standard hosted runner.
+    runs-on: [self-hosted, linux, x64, android-rom-builder]
+    timeout-minutes: 360
+    env:
+      USE_CCACHE: "1"
+      CCACHE_COMPRESS: "1"
+      CCACHE_MAXSIZE: 50G
+      BUILD_VANILLA: ${{ inputs.build_vanilla || 'true' }}
+      BUILD_GAPPS: ${{ inputs.build_gapps || 'true' }}
+    steps:
+      - name: Check build host
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v repo >/dev/null || { echo "::error::Install Google's repo launcher on the build host."; exit 1; }
+          command -v git >/dev/null
+          command -v python3 >/dev/null
+          command -v ccache >/dev/null || { echo "::error::Install ccache on the build host."; exit 1; }
+          free_gb=$(df -BG "$HOME" | awk 'NR==2 {gsub(/G/,"",$4); print $4}')
+          ram_gb=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+          echo "Free disk: ${free_gb} GB; RAM: ${ram_gb} GB"
+          if [ "$free_gb" -lt 250 ] || [ "$ram_gb" -lt 24 ]; then
+            echo "::error::Build host needs at least 250 GB free disk and 24 GB RAM (32 GB recommended)."
+            exit 1
+          fi
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v apt-get >/dev/null; then
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32ncurses-dev lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libncurses-dev libsdl1.2-dev libssl-dev libxml2-utils lz4 pngcrush rsync schedtool squashfs-tools unzip xsltproc zip zlib1g-dev openjdk-17-jdk python3
+          fi
+      - name: Initialise LineageOS GSI source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/experience-ui-gsi"
+          cd "$HOME/experience-ui-gsi"
+          if [ ! -d .repo ]; then
+            repo init -u https://github.com/LineageOS/android.git -b lineage-23.2 --git-lfs
+            mkdir -p .repo/local_manifests
+            git clone --depth=1 -b lineage-23.2 https://github.com/MisterZtr/treble_manifest.git .repo/local_manifests/treble_manifest
+          fi
+          repo sync --force-sync --optimized-fetch --no-tags --no-clone-bundle --prune -j4
+      - name: Apply matching GSI patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HOME/experience-ui-gsi"
+          if [ ! -d LineageOS_gsi ]; then
+            git clone --depth=1 -b lineage-23.2 https://github.com/MisterZtr/LineageOS_gsi.git
+          else
+            git -C LineageOS_gsi fetch --depth=1 origin lineage-23.2
+            git -C LineageOS_gsi checkout -f FETCH_HEAD
+          fi
+          bash LineageOS_gsi/patches/apply-patches.sh .
+      - name: Build vanilla ARM64 GSI
+        if: inputs.build_vanilla != false
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HOME/experience-ui-gsi"
+          source build/envsetup.sh
+          ccache -M 50G -F 0
+          breakfast lineage_arm64_bvN4-bp4a-userdebug
+          make systemimage -j"$(nproc --all)"
+          mkdir -p "$GITHUB_WORKSPACE/dist/vanilla"
+          cp out/target/product/tdgsi_arm64_ab/system.img "$GITHUB_WORKSPACE/dist/vanilla/ExperienceUI-Vanilla-arm64-system.img"
+          sha256sum "$GITHUB_WORKSPACE/dist/vanilla/ExperienceUI-Vanilla-arm64-system.img" > "$GITHUB_WORKSPACE/dist/vanilla/SHA256SUMS"
+      - name: Build ARM64 GApps GSI
+        if: inputs.build_gapps != false
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HOME/experience-ui-gsi"
+          source build/envsetup.sh
+          ccache -M 50G -F 0
+          breakfast lineage_arm64_bgN4-bp4a-userdebug
+          make systemimage -j"$(nproc --all)"
+          mkdir -p "$GITHUB_WORKSPACE/dist/gapps"
+          cp out/target/product/tdgsi_arm64_ab/system.img "$GITHUB_WORKSPACE/dist/gapps/ExperienceUI-GApps-arm64-system.img"
+          sha256sum "$GITHUB_WORKSPACE/dist/gapps/ExperienceUI-GApps-arm64-system.img" > "$GITHUB_WORKSPACE/dist/gapps/SHA256SUMS"
+      - name: Upload built images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experience-ui-gsi-images
+          path: dist/
+          if-no-files-found: warn
+          retention-days: 30
