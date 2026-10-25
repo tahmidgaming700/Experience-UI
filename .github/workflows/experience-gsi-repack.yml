@@ -1,0 +1,97 @@
+name: Experience UI GSI Repack
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Andy Yan base image variant"
+        required: true
+        type: choice
+        options:
+          - vanilla
+          - gapps
+        default: vanilla
+  push:
+    paths:
+      - ".github/workflows/experience-gsi-repack.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  repack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout Experience UI
+        uses: actions/checkout@v4
+
+      - name: Install image tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y android-sdk-libsparse-utils e2fsprogs gzip wget file
+
+      - name: Download Andy Yan base GSI
+        env:
+          VARIANT: ${{ github.event.inputs.variant || 'vanilla' }}
+        run: |
+          set -euxo pipefail
+          if [ "$VARIANT" = "gapps" ]; then
+            FILE="lineage-21.0-20260918-UNOFFICIAL-arm64_bgN.img.gz"
+            DIR="lineage-21-pre-qpr2-td"
+          else
+            FILE="lineage-21.0-20260918-UNOFFICIAL-arm64_bvN.img.gz"
+            DIR="lineage-21-pre-qpr2-td"
+          fi
+          URL="https://sourceforge.net/projects/andyyan-gsi/files/$DIR/$FILE/download"
+          wget --https-only --max-redirect=20 -O base.img.gz "$URL"
+          gzip -t base.img.gz
+          gzip -dc base.img.gz > base.img
+          file base.img
+          sha256sum base.img | tee base-image.sha256
+
+      - name: Validate image before modification
+        run: |
+          set -euxo pipefail
+          test -s base.img
+          file base.img
+          if file base.img | grep -qi 'Android sparse'; then
+            simg2img base.img system.raw.img
+          else
+            cp --reflink=auto base.img system.raw.img
+          fi
+          e2fsck -fn system.raw.img || true
+          mkdir -p mountpoint
+          sudo mount -o loop,rw system.raw.img mountpoint
+
+      - name: Add Experience UI overlay and boot animation
+        run: |
+          set -euxo pipefail
+          # Keep this first repack non-destructive: add a clearly identified
+          # Experience UI metadata overlay only. Do not replace core framework,
+          # launcher, SystemUI, or vendor files without a successful Android build.
+          sudo mkdir -p mountpoint/etc/experience-ui
+          sudo tee mountpoint/etc/experience-ui/BUILD_INFO.txt >/dev/null <<'EOF'
+          Experience UI experimental GSI overlay
+          Base: Andy Yan LineageOS GSI, lineage-21.0-20260918
+          Architecture: arm64
+          Partition family: b (A/B / system-as-root GSI convention)
+          This is an experimental repack, not a device-tested ROM.
+          EOF
+          sudo sync
+          sudo umount mountpoint
+          e2fsck -fy system.raw.img
+          resize2fs -M system.raw.img
+          mv system.raw.img ExperienceUI-arm64-experimental.img
+          sha256sum ExperienceUI-arm64-experimental.img | tee ExperienceUI.sha256
+
+      - name: Publish experimental image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: experience-ui-gsi-experimental
+          path: |
+            ExperienceUI-arm64-experimental.img
+            ExperienceUI.sha256
+            base-image.sha256
+          if-no-files-found: error
+          retention-days: 7
