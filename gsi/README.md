@@ -16,7 +16,7 @@ This directory defines the **GSI customization layer** for Experience UI. It is 
 | Huawei Y9 2019 (JKM-LX2, Kirin 710) | Research only | Bootloader unlock availability and Treble/partition compatibility are not confirmed. Do not flash. |
 | Samsung Galaxy Tab S 10.5 (SM-T805, chagalllte) | Research only | Legacy device; a modern GSI may lack compatible kernel/vendor components. Do not flash. |
 
-## GSI workflow
+## Build guide\n\nFollow [`BUILD_GSI.md`](BUILD_GSI.md) for the source-build plan, ARM64 variant terminology, and build requirements. It explicitly distinguishes the community Treble-Droid GSI source from official LineageOS device builds.\n\n## GSI workflow
 
 1. Identify exact model and firmware; back up user data.
 2. Collect read-only device properties: `ro.treble.enabled`, `ro.product.cpu.abi`, `ro.build.version.release`, `ro.product.first_api_level`, and partition information.
