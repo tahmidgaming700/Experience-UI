@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       variant:
-        description: "Andy Yan base image variant"
+        description: "Andy Yan base GSI variant"
         required: true
         type: choice
         options:
@@ -26,6 +26,32 @@ jobs:
       - name: Checkout Experience UI
         uses: actions/checkout@v4
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build Experience UI launcher
+        run: |
+          set -euxo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :launcher:assembleDebug
+          test -s launcher/build/outputs/apk/debug/launcher-debug.apk
+          mkdir -p out
+          cp launcher/build/outputs/apk/debug/launcher-debug.apk out/ExperienceLauncher.apk
+
+      - name: Generate Experience UI boot animation
+        run: |
+          set -euxo pipefail
+          python3 --version
+          python3 -m pip install --user pillow
+          python3 bootanimation/generate_bootanimation.py
+          find bootanimation -maxdepth 3 -type f -print
+          ANIM="$(find bootanimation -type f -name 'bootanimation.zip' -print -quit)"
+          test -n "$ANIM"
+          cp "$ANIM" out/bootanimation.zip
+
       - name: Install image tools
         run: |
           sudo apt-get update
@@ -36,62 +62,68 @@ jobs:
           VARIANT: ${{ github.event.inputs.variant || 'vanilla' }}
         run: |
           set -euxo pipefail
+          DIR="lineage-21-pre-qpr2-td"
           if [ "$VARIANT" = "gapps" ]; then
-            FILE="lineage-21.0-20260918-UNOFFICIAL-arm64_bgN.img.gz"
-            DIR="lineage-21-pre-qpr2-td"
+            FILE="lineage-21.0-20260614-UNOFFICIAL-arm64_bgN-signed.img.gz"
           else
-            FILE="lineage-21.0-20260918-UNOFFICIAL-arm64_bvN.img.gz"
-            DIR="lineage-21-pre-qpr2-td"
+            FILE="lineage-21.0-20260614-UNOFFICIAL-arm64_bvN.img.gz"
           fi
           URL="https://sourceforge.net/projects/andyyan-gsi/files/$DIR/$FILE/download"
-          wget --https-only --max-redirect=20 -O base.img.gz "$URL"
+          wget --https-only --max-redirect=20 --tries=3 --timeout=60 -O base.img.gz "$URL"
           gzip -t base.img.gz
           gzip -dc base.img.gz > base.img
           file base.img
-          sha256sum base.img | tee base-image.sha256
+          sha256sum base.img | tee out/base-image.sha256
 
-      - name: Validate image before modification
+      - name: Expand and validate filesystem
         run: |
           set -euxo pipefail
           test -s base.img
-          file base.img
           if file base.img | grep -qi 'Android sparse'; then
             simg2img base.img system.raw.img
           else
             cp --reflink=auto base.img system.raw.img
           fi
-          e2fsck -fn system.raw.img || true
+          file system.raw.img
+          e2fsck -fn system.raw.img
           mkdir -p mountpoint
           sudo mount -o loop,rw system.raw.img mountpoint
 
-      - name: Add Experience UI overlay and boot animation
+      - name: Integrate Experience UI components
         run: |
           set -euxo pipefail
-          # Keep this first repack non-destructive: add a clearly identified
-          # Experience UI metadata overlay only. Do not replace core framework,
-          # launcher, SystemUI, or vendor files without a successful Android build.
+          # Add the built launcher as a system app, retaining the upstream framework.
+          sudo mkdir -p mountpoint/system/app/ExperienceLauncher
+          sudo install -m 0644 out/ExperienceLauncher.apk mountpoint/system/app/ExperienceLauncher/ExperienceLauncher.apk
+          sudo mkdir -p mountpoint/system/media
+          sudo install -m 0644 out/bootanimation.zip mountpoint/system/media/bootanimation.zip
           sudo mkdir -p mountpoint/etc/experience-ui
-          sudo tee mountpoint/etc/experience-ui/BUILD_INFO.txt >/dev/null <<'EOF'
-          Experience UI experimental GSI overlay
-          Base: Andy Yan LineageOS GSI, lineage-21.0-20260918
+          sudo tee mountpoint/etc/experience-ui/BUILD_INFO.txt >/dev/null <<EOF
+          Experience UI experimental GSI repack
+          Base: Andy Yan LineageOS GSI lineage-21.0-20260614
+          Variant: ${{ github.event.inputs.variant || 'vanilla' }}
           Architecture: arm64
           Partition family: b (A/B / system-as-root GSI convention)
-          This is an experimental repack, not a device-tested ROM.
+          Integrated components: Experience UI launcher APK and boot animation
+          Not device-tested. Do not flash unless device compatibility is independently verified.
           EOF
           sudo sync
           sudo umount mountpoint
           e2fsck -fy system.raw.img
           resize2fs -M system.raw.img
-          mv system.raw.img ExperienceUI-arm64-experimental.img
-          sha256sum ExperienceUI-arm64-experimental.img | tee ExperienceUI.sha256
+          mv system.raw.img out/ExperienceUI-arm64-experimental.img
+          file out/ExperienceUI-arm64-experimental.img
+          sha256sum out/ExperienceUI-arm64-experimental.img | tee out/ExperienceUI.sha256
 
       - name: Publish experimental image artifact
         uses: actions/upload-artifact@v4
         with:
           name: experience-ui-gsi-experimental
           path: |
-            ExperienceUI-arm64-experimental.img
-            ExperienceUI.sha256
-            base-image.sha256
+            out/ExperienceUI-arm64-experimental.img
+            out/ExperienceUI.sha256
+            out/base-image.sha256
+            out/ExperienceLauncher.apk
+            out/bootanimation.zip
           if-no-files-found: error
           retention-days: 7
