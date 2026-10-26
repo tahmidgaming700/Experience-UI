@@ -1,94 +1,122 @@
-name: Experience UI GSI Repack
+name: Experience UI — Repack Andy Yan Android 12 GSI
+
 on:
   workflow_dispatch:
-    inputs:
-      variant:
-        description: "Andy Yan base GSI variant"
-        required: true
-        type: choice
-        options: [vanilla, gapps]
-        default: vanilla
   push:
     paths:
       - ".github/workflows/experience-gsi-repack.yml"
+      - "launcher/**"
+      - "core-ui/**"
+      - "settings/**"
+      - "setupwizard/**"
+      - "dialer/**"
+      - "messages/**"
+      - "contacts/**"
+      - "notes/**"
+      - "clock/**"
+      - "calendar/**"
+      - "calculator/**"
+      - "files/**"
+      - "gallery/**"
+      - "camera/**"
+      - "converter/**"
+      - "bootanimation/**"
+      - "rom-integration/**"
+
 permissions:
   contents: read
+
 jobs:
   repack:
+    # A hosted Linux runner is intentional: the image needs a privileged loop mount.
+    # An unrooted Android/Termux self-hosted runner cannot safely do that.
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      BASE_FILE: lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz
+      BASE_URL: https://sourceforge.net/projects/andyyan-gsi/files/lineage-19.x/lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz/download
     steps:
       - name: Checkout Experience UI
         uses: actions/checkout@v4
-      - name: Set up Java
-        uses: actions/setup-java@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-      - name: Set up Gradle
+
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Configure preinstalled Android SDK
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
         run: |
-          set -euxo pipefail
-          SDK="$ANDROID_HOME"
-          test -d "$SDK"
-          if [ -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
-            SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
-          elif [ -x "$SDK/cmdline-tools/16.0/bin/sdkmanager" ]; then
-            SDKMANAGER="$SDK/cmdline-tools/16.0/bin/sdkmanager"
-          else
-            echo "No usable sdkmanager found under $SDK" >&2
-            exit 1
-          fi
-          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-      - name: Build Experience UI app suite
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build Experience UI APK suite
+        shell: bash
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           gradle --no-daemon assembleDebug
-          mkdir -p out/apks
-          for module in launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter app; do
+          mkdir -p dist/apks
+          for module in launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter; do
             apk="$module/build/outputs/apk/debug/$module-debug.apk"
-            test -s "$apk"
-            cp "$apk" "out/apks/Experience-$module.apk"
+            if [ ! -s "$apk" ]; then
+              echo "::error::Expected APK not found: $apk"
+              find "$module/build/outputs" -type f -name '*.apk' 2>/dev/null || true
+              exit 1
+            fi
+            cp "$apk" "dist/apks/Experience-$module.apk"
           done
-          cp out/apks/Experience-launcher.apk out/ExperienceLauncher.apk
+          ls -lh dist/apks
+
       - name: Generate Experience UI boot animation
+        shell: bash
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           python3 -m venv .venv
-          .venv/bin/pip install pillow
+          .venv/bin/pip install --disable-pip-version-check Pillow
           .venv/bin/python bootanimation/generate_bootanimation.py
           test -s bootanimation/bootanimation.zip
-          cp bootanimation/bootanimation.zip out/bootanimation.zip
+          mkdir -p dist/bootanimation
+          cp bootanimation/bootanimation.zip dist/bootanimation/
+          if [ -s bootanimation/experience-boot-preview.gif ]; then
+            cp bootanimation/experience-boot-preview.gif dist/bootanimation/
+          fi
+
       - name: Install image tools
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y android-sdk-libsparse-utils e2fsprogs gzip wget file qemu-utils
-      - name: Download Andy Yan base GSI
-        env:
-          VARIANT: \${{ github.event.inputs.variant || 'vanilla' }}
+
+      - name: Download the supplied Andy Yan Android 12 GApps GSI
+        shell: bash
         run: |
-          set -euxo pipefail
-          DIR="lineage-21-pre-qpr2-td"
-          if [ "$VARIANT" = "gapps" ]; then
-            FILE="lineage-21.0-20260614-UNOFFICIAL-arm64_bgN-signed.img.gz"
-          else
-            FILE="lineage-21.0-20260614-UNOFFICIAL-arm64_bvN.img.gz"
-          fi
-          URL="https://sourceforge.net/projects/andyyan-gsi/files/$DIR/$FILE/download"
-          wget --https-only --max-redirect=20 --tries=3 --timeout=60 -O base.img.gz "$URL"
+          set -euo pipefail
+          mkdir -p dist/metadata
+          wget --https-only --max-redirect=20 --tries=3 --timeout=60 \
+            -O base.img.gz "$BASE_URL"
           gzip -t base.img.gz
           gzip -dc base.img.gz > base.img
-          file base.img
-          sha256sum base.img | tee out/base-image.sha256
-      - name: Expand and validate filesystem
-        run: |
-          set -euxo pipefail
           test -s base.img
+          file base.img
+          sha256sum base.img | tee dist/metadata/base-image.sha256
+          printf '%s\n' "$BASE_URL" > dist/metadata/base-image-url.txt
+          printf '%s\n' "$BASE_FILE" > dist/metadata/base-image-filename.txt
+
+      - name: Expand and validate image before editing
+        shell: bash
+        run: |
+          set -euo pipefail
           if file base.img | grep -qi 'Android sparse'; then
             simg2img base.img system.raw.img
           else
@@ -96,14 +124,25 @@ jobs:
           fi
           file system.raw.img
           e2fsck -fn system.raw.img
+
+          # The supplied image is nearly full. Expand the copy by 384 MiB
+          # so app integration has room; this is experimental and not a
+          # claim that the target device's system partition can hold it.
+          truncate -s +384M system.raw.img
+          e2fsck -f -y system.raw.img
+          resize2fs system.raw.img
+          e2fsck -fn system.raw.img
+
+      - name: Integrate Experience UI APKs and boot animation
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p mountpoint
           sudo mount -o loop,rw system.raw.img mountpoint
-      - name: Integrate current Experience UI components
-        env:
-          VARIANT: \${{ github.event.inputs.variant || 'vanilla' }}
-        run: |
-          set -euxo pipefail
-          for apk in out/apks/Experience-*.apk; do
+          cleanup() { sudo umount mountpoint 2>/dev/null || true; }
+          trap cleanup EXIT
+
+          for apk in dist/apks/Experience-*.apk; do
             module="$(basename "$apk" .apk | sed 's/^Experience-//')"
             case "$module" in
               launcher) appdir="ExperienceLauncher" ;;
@@ -120,44 +159,58 @@ jobs:
               gallery) appdir="ExperienceGallery" ;;
               camera) appdir="ExperienceCamera" ;;
               converter) appdir="ExperienceConverter" ;;
-              app) appdir="ExperienceOSConverter" ;;
-              *) echo "Unexpected APK module: $module" >&2; exit 1 ;;
+              *) echo "::error::Unexpected APK module: $module"; exit 1 ;;
             esac
-            sudo mkdir -p "mountpoint/system/app/$appdir"
+            sudo install -d -m 0755 "mountpoint/system/app/$appdir"
             sudo install -m 0644 "$apk" "mountpoint/system/app/$appdir/$appdir.apk"
           done
-          sudo mkdir -p mountpoint/system/media
-          sudo install -m 0644 out/bootanimation.zip mountpoint/system/media/bootanimation.zip
-          sudo mkdir -p mountpoint/etc/experience-ui
+
+          sudo install -d -m 0755 mountpoint/system/media
+          sudo install -m 0644 dist/bootanimation/bootanimation.zip mountpoint/system/media/bootanimation.zip
+          sudo install -d -m 0755 mountpoint/etc/experience-ui
           sudo tee mountpoint/etc/experience-ui/BUILD_INFO.txt >/dev/null <<EOF
           Experience UI experimental GSI repack
-          Base: Andy Yan LineageOS GSI lineage-21.0-20260614
-          Variant: $VARIANT
-          Architecture: arm64
-          Partition family: b (A/B / system-as-root GSI convention)
-          Integrated components: Experience UI launcher and companion app suite plus boot animation
-          This is an application integration image, not a complete replacement SystemUI/framework ROM.
-          Not QEMU-boot-tested and not device-tested. Do not flash until compatibility is verified.
+          Base: Andy Yan LineageOS 19.1 Android 12 GApps GSI
+          Base file: $BASE_FILE
+          Architecture: ARM64
+          Included: Experience UI APK suite and boot animation
+          Status: Experimental; not boot-tested or device-tested
+          Target: Huawei Y9 2019 JKM-LX2 compatibility is unconfirmed
+          This is not a complete device-specific ROM. Do not flash without independent compatibility verification.
           EOF
           sudo sync
           sudo umount mountpoint
-          e2fsck -fy system.raw.img
-          resize2fs -M system.raw.img
-          mv system.raw.img out/ExperienceUI-arm64-experimental.img
-          file out/ExperienceUI-arm64-experimental.img
-          qemu-img info out/ExperienceUI-arm64-experimental.img
-          e2fsck -fn out/ExperienceUI-arm64-experimental.img
-          sha256sum out/ExperienceUI-arm64-experimental.img | tee out/ExperienceUI.sha256
-      - name: Publish experimental image artifact
+          trap - EXIT
+
+      - name: Validate and package experimental image
+        shell: bash
+        run: |
+          set -euo pipefail
+          e2fsck -fn system.raw.img
+          mkdir -p dist/image
+          cp system.raw.img dist/image/ExperienceUI-Android12-arm64-experimental.img
+          file dist/image/ExperienceUI-Android12-arm64-experimental.img
+          qemu-img info dist/image/ExperienceUI-Android12-arm64-experimental.img
+          sha256sum dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/ExperienceUI-image.sha256
+          {
+            echo "Experience UI experimental GSI repack"
+            echo "Base: Andy Yan LineageOS 19.1 Android 12 GApps GSI"
+            echo "Source URL: $BASE_URL"
+            echo "Architecture: ARM64"
+            echo "Added: Experience UI APK suite and boot animation"
+            echo "Validation: ext filesystem checked; Android boot not tested"
+            echo "Device compatibility: unconfirmed for Huawei Y9 2019 JKM-LX2"
+            echo "Do not flash unless compatibility, partition size, bootloader access and recovery route are verified."
+          } > dist/metadata/BUILD-STATUS.txt
+
+      - name: Upload experimental artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: experience-ui-gsi-experimental
+          name: experience-ui-android12-gsi-experimental
           path: |
-            out/ExperienceUI-arm64-experimental.img
-            out/ExperienceUI.sha256
-            out/base-image.sha256
-            out/ExperienceLauncher.apk
-            out/apks/*.apk
-            out/bootanimation.zip
+            dist/image/ExperienceUI-Android12-arm64-experimental.img
+            dist/apks/*.apk
+            dist/bootanimation/*
+            dist/metadata/*
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
