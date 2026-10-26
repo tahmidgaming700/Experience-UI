@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "project": "Experience UI",
+  "stable": {
+    "version": "No stable OTA published",
+    "security_patch": "Not published",
+    "release_notes": "Monthly security release channel is prepared, but no signed compatible package has been published yet.",
+    "package_url": "",
+    "sha256": ""
+  },
+  "early_access": {
+    "version": "Experience UI 2 — Android 13 — not released",
+    "security_patch": "Not published",
+    "release_notes": "Early-access placeholder. Do not install until a device-compatible build, signing, and recovery instructions are published.",
+    "package_url": "",
+    "sha256": ""
+  }
+}
