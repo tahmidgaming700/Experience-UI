@@ -117,15 +117,16 @@ class UpdaterActivity : Activity() {
             progress = 0
             visibility = View.GONE
         }
+        footerBrand = label(experienceBrand, 13f, Color.rgb(100, 202, 255), true).apply {
+            gravity = android.view.Gravity.CENTER
+        }
+        footer.addView(footerBrand)
+        progress.progressDrawable?.setColorFilter(Color.rgb(40, 190, 255), android.graphics.PorterDuff.Mode.SRC_IN)
         footer.addView(progress, ViewGroup.LayoutParams(-1, 5))
         footerPhase = label("READY TO CHECK", 11f, Color.rgb(190, 215, 245), true).apply {
             gravity = android.view.Gravity.CENTER
         }
         footer.addView(footerPhase)
-        footerBrand = label(experienceBrand, 13f, Color.rgb(100, 202, 255), true).apply {
-            gravity = android.view.Gravity.CENTER
-        }
-        footer.addView(footerBrand)
         root.addView(footer, ViewGroup.LayoutParams(-1, -2))
         setContentView(root)
     }
