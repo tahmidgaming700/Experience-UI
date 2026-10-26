@@ -2,6 +2,11 @@ name: Experience UI GSI Virtual Boot Test
 
 on:
   workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: "Successful Build Experience UI GSI workflow run ID (required for an exact build test)"
+        required: true
+        type: string
   workflow_run:
     workflows: ["Build Experience UI GSI (GitHub Ubuntu)"]
     types: [completed]
@@ -11,105 +16,184 @@ permissions:
   actions: read
 
 jobs:
-  virtual-boot-preflight:
-    # Cuttlefish requires a compatible host kernel/KVM and a complete virtual-device
-    # image set. This job deliberately does not substitute a stock emulator image
-    # and claim it booted the ARM64 GSI.
+  virtual-boot:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 55
     steps:
       - name: Checkout Experience UI
         uses: actions/checkout@v4
 
-      - name: Install image inspection tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y file e2fsprogs qemu-utils gzip wget python3-pip
+      - name: Install Android SDK and emulator
+        uses: android-actions/setup-android@v3
 
-      - name: Download the exact current base GSI
+      - name: Install Android 12 ARM64 virtual-device tools
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p test-results/screenshots test-results/logs
-          URL='https://sourceforge.net/projects/andyyan-gsi/files/lineage-19.x/lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz/download'
-          wget --https-only --max-redirect=20 --tries=3 --timeout=60 -O base.img.gz "$URL"
-          gzip -t base.img.gz
-          gzip -dc base.img.gz > base.img
-          file base.img | tee test-results/logs/image-type.txt
-          sha256sum base.img | tee test-results/logs/gsi-sha256.txt
-          qemu-img info base.img | tee test-results/logs/qemu-img-info.txt
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "emulator" "system-images;android-32;google_apis;arm64-v8a"
+          mkdir -p test-results/logs test-results/screenshots incoming
+
+      - name: Download exact GSI artifact from successful build run
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: experience-ui-gsi-ubuntu-experimental
+          path: incoming
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download exact GSI artifact from selected build run
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          name: experience-ui-gsi-ubuntu-experimental
+          path: incoming
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify and prepare the exact GSI image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          GSI_IMG="$(find incoming -type f -name 'ExperienceUI-Android12-arm64-experimental.img' -print -quit)"
+          if [ -z "$GSI_IMG" ]; then
+            echo "::error::The selected build artifact does not contain ExperienceUI-Android12-arm64-experimental.img"
+            find incoming -maxdepth 5 -type f -print
+            exit 1
+          fi
+          GSI_IMG="$(realpath "$GSI_IMG")"
+          echo "gsi_img=$GSI_IMG" >> "$GITHUB_OUTPUT"
+          file "$GSI_IMG" | tee test-results/logs/gsi-file.txt
+          sha256sum "$GSI_IMG" | tee test-results/logs/gsi-sha256.txt
+          qemu-img info "$GSI_IMG" | tee test-results/logs/gsi-image-info.txt
+          echo "Testing exact image: $GSI_IMG" | tee test-results/logs/test-target.txt
+
+      - name: Create ARM64 Android 12 emulator profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo no | avdmanager create avd --force --name ExperienceUI_ARM64_API32 --package "system-images;android-32;google_apis;arm64-v8a" --device "pixel_2" 2>&1 | tee test-results/logs/avd-create.txt
+          emulator -version | tee test-results/logs/emulator-version.txt
+          emulator -list-avds | tee test-results/logs/avd-list.txt
           {
-            echo '# Experience UI GSI virtual boot report'
+            echo "Runner: $(uname -a)"
+            echo "KVM device: $([ -e /dev/kvm ] && echo available || echo unavailable)"
+            echo "Emulator target: Android 12L API 32 ARM64"
+            echo "Note: x86_64 GitHub runners cannot KVM-accelerate an ARM64 guest; software emulation may be slow or unsupported by the installed emulator build."
+          } | tee test-results/logs/host-info.txt
+
+      - name: Attempt to boot the exact Experience UI GSI
+        id: boot
+        continue-on-error: true
+        timeout-minutes: 32
+        shell: bash
+        env:
+          ANDROID_I_WANT_MY_TCG: "yes"
+          GSI_IMG: ${{ steps.image.outputs.gsi_img }}
+        run: |
+          set -uo pipefail
+          # Use the Android 12 ARM64 emulator kernel and ramdisk, but substitute
+          # the actual Experience UI GSI system partition. This is a real boot
+          # attempt, not a stock-AVD screenshot or a synthetic image.
+          emulator @ExperienceUI_ARM64_API32 \
+            -system "$GSI_IMG" \
+            -partition-size 8192 \
+            -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
+            -gpu swiftshader_indirect -accel off -verbose \
+            > test-results/logs/emulator.log 2>&1 &
+          EMULATOR_PID=$!
+          echo "$EMULATOR_PID" > test-results/logs/emulator.pid
+          cleanup() {
+            adb emu kill >/dev/null 2>&1 || kill "$EMULATOR_PID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          adb start-server
+          deadline=$((SECONDS + 1700))
+          BOOTED=0
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              echo "Emulator process exited before Android boot completed." | tee test-results/logs/boot-result.txt
+              break
+            fi
+            if adb devices | grep -q 'emulator-[0-9][[:space:]]*device'; then
+              if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+                BOOTED=1
+                break
+              fi
+            fi
+            sleep 5
+          done
+
+          if [ "$BOOTED" -eq 1 ]; then
+            {
+              echo "Result: BOOT_COMPLETED"
+              adb shell getprop ro.build.fingerprint
+              adb shell getprop ro.build.version.release
+              adb shell getprop ro.product.cpu.abi
+            } | tee test-results/logs/boot-result.txt
+            adb shell dumpsys activity activities > test-results/logs/activities.txt 2>&1 || true
+            adb shell pm list packages > test-results/logs/packages.txt 2>&1 || true
+            adb logcat -d -v threadtime > test-results/logs/logcat.txt 2>&1 || true
+            adb shell screencap -p /sdcard/experience-ui-screen.png
+            adb pull /sdcard/experience-ui-screen.png test-results/screenshots/experience-ui-actual-boot.png
+            echo "booted=true" >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "Result: BOOT_NOT_COMPLETED"
+              echo "The exact GSI did not report sys.boot_completed=1 within the timeout, or the emulator process exited."
+            } | tee test-results/logs/boot-result.txt
+            adb logcat -d -v threadtime > test-results/logs/logcat.txt 2>&1 || true
+            adb devices -l > test-results/logs/adb-devices.txt 2>&1 || true
+            echo "booted=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write truthful boot report
+        if: always()
+        shell: bash
+        env:
+          BOOT_OUTCOME: ${{ steps.boot.outcome }}
+          BOOTED: ${{ steps.boot.outputs.booted }}
+          GSI_IMG: ${{ steps.image.outputs.gsi_img }}
+        run: |
+          set -u
+          mkdir -p test-results
+          {
+            echo "# Experience UI GSI virtual boot report"
             echo
-            echo '- Target: exact repacked base GSI lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed'
-            echo '- Architecture: ARM64'
-            echo '- Android base: Android 12 / LineageOS 19.1'
-            echo '- Result: NOT BOOTED'
-            echo '- Reason: a system GSI alone is not a complete virtual-device boot bundle; it needs a compatible kernel/boot ramdisk and matching vendor/device configuration.'
-            echo '- This workflow will not substitute an x86_64 stock emulator and misreport that as a GSI boot.'
+            echo "- Tested image: `ExperienceUI-Android12-arm64-experimental.img`"
+            echo "- Image SHA-256: `$(awk '{print $1}' test-results/logs/gsi-sha256.txt 2>/dev/null || echo unavailable)`"
+            echo "- VM target: Android 12L API 32 ARM64 Android Emulator"
+            echo "- Emulator step outcome: ${BOOT_OUTCOME:-not-run}"
+            if [ "${BOOTED:-false}" = "true" ]; then
+              echo "- Result: **BOOT_COMPLETED**"
+              echo "- Evidence: `screenshots/experience-ui-actual-boot.png`, logcat, package list and build properties."
+              echo "- Scope: this proves only that the image booted in this emulator configuration; it does not prove compatibility with a physical device."
+            else
+              echo "- Result: **BOOT NOT VERIFIED**"
+              echo "- The emulator did not confirm `sys.boot_completed=1`."
+              echo "- No Android-running screenshot is claimed. Inspect `logs/emulator.log` and `logs/logcat.txt` to identify whether the emulator rejected the image, failed before boot, or reached a boot loop."
+            fi
             echo
-            echo 'This job performs image preflight only. It does not claim Android reached boot animation or launcher.'
+            echo "This is an experimental ARM64 GSI test using an Android Emulator-provided kernel/ramdisk with the Experience UI system image substituted. It is not a device-specific ROM test."
           } > test-results/REPORT.md
+          cat test-results/REPORT.md
 
-      - name: Check whether required boot components are available
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p test-results/logs
-          {
-            echo 'GitHub-hosted runner architecture:'
-            uname -m
-            echo
-            echo 'KVM availability:'
-            if [ -e /dev/kvm ]; then ls -l /dev/kvm; else echo '/dev/kvm is not available'; fi
-            echo
-            echo 'Repository boot component candidates:'
-            find . -maxdepth 5 -type f \( -name 'boot.img' -o -name 'vendor_boot.img' -o -name 'init_boot.img' -o -name 'vendor.img' -o -name 'vbmeta.img' \) -print | tee test-results/logs/boot-components.txt || true
-          } | tee test-results/logs/host-preflight.txt
-
-          if [ "$(uname -m)" != "aarch64" ]; then
-            echo 'Host is not ARM64; native ARM64 guest execution cannot be assumed.' | tee -a test-results/logs/host-preflight.txt
-          fi
-          if ! find . -maxdepth 5 -type f \( -name 'boot.img' -o -name 'vendor_boot.img' \) -print -quit | grep -q .; then
-            echo 'Missing boot.img/vendor_boot.img: exact GSI virtual boot is blocked.' | tee -a test-results/logs/host-preflight.txt
-          fi
-
-      - name: Create clear screenshot placeholder for unavailable virtual display
-        shell: bash
-        run: |
-          python3 -m pip install --user Pillow
-          python3 - <<'PY'
-          from PIL import Image, ImageDraw
-          out = 'test-results/screenshots/virtual-boot-not-started.png'
-          im = Image.new('RGB', (1080, 1920), '#10151f')
-          d = ImageDraw.Draw(im)
-          d.text((70, 140), 'EXPERIENCE UI', fill='#ffffff', stroke_width=0)
-          d.text((70, 230), 'GSI VIRTUAL BOOT TEST', fill='#8db7ff')
-          lines = [
-              'STATUS: NOT BOOTED',
-              '',
-              'This is a test-status card, NOT a',
-              'screenshot of Android running.',
-              '',
-              'The ARM64 GSI needs a compatible',
-              'kernel, boot ramdisk and vendor setup.',
-              '',
-              'See REPORT.md and logs for details.'
-          ]
-          y = 430
-          for line in lines:
-              d.text((70, y), line, fill='#ffffff')
-              y += 78
-          im.save(out)
-          print(f'Wrote {out}')
-          PY
-
-      - name: Upload virtual boot report, screenshot and logs
+      - name: Upload boot evidence, screenshots and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: experience-ui-gsi-virtual-boot-test
           path: test-results/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
+
+      - name: Fail the workflow if Android did not boot
+        if: steps.boot.outcome != 'success' || steps.boot.outputs.booted != 'true'
+        shell: bash
+        run: |
+          echo "::error::Experience UI GSI did not complete Android boot. Download the test artifact and inspect REPORT.md and logs."
+          exit 1
