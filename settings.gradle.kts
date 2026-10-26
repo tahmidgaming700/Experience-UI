@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "ExperienceUI"
-include(":core-ui", ":launcher", ":dialer", ":messages", ":settings", ":setupwizard", ":converter", ":contacts", ":notes", ":clock", ":calendar", ":calculator", ":files", ":gallery", ":camera")
+include(":ota-updater", ":core-ui", ":launcher", ":dialer", ":messages", ":settings", ":setupwizard", ":converter", ":contacts", ":notes", ":clock", ":calendar", ":calculator", ":files", ":gallery", ":camera")
