@@ -80,11 +80,20 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "emulator"
 
+      - name: Restore previously generated boot animation
+        uses: actions/cache@v4
+        with:
+          path: |
+            bootanimation/bootanimation.zip
+            bootanimation/experience-boot-preview.gif
+          key: experience-bootanimation-\${{ hashFiles('bootanimation/generate_bootanimation.py') }}
+
       - name: Build every app module
         shell: bash
         run: |
           set -Eeuo pipefail
-          gradle --no-daemon --stacktrace clean assembleDebug
+          # Keep Gradle outputs; do not erase them with clean on every run.
+          gradle --no-daemon --stacktrace assembleDebug
           mkdir -p dist/apks
           modules=(launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter ota-updater)
           for module in "${modules[@]}"; do
@@ -111,13 +120,17 @@ jobs:
             unzip -t "$apk" >/dev/null
           done
 
-      - name: Generate and validate boot animation
+      - name: Generate boot animation only when cache is missing
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 -m venv .venv
-          .venv/bin/pip install --disable-pip-version-check Pillow
-          .venv/bin/python bootanimation/generate_bootanimation.py
+          if [[ ! -s bootanimation/bootanimation.zip || ! -s bootanimation/experience-boot-preview.gif ]]; then
+            python3 -m venv .venv
+            .venv/bin/pip install --disable-pip-version-check Pillow
+            .venv/bin/python bootanimation/generate_bootanimation.py
+          else
+            echo "Using cached boot animation outputs."
+          fi
           test -s bootanimation/bootanimation.zip
           test -s bootanimation/experience-boot-preview.gif
           unzip -t bootanimation/bootanimation.zip
@@ -140,12 +153,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y e2fsprogs gzip wget file qemu-utils android-sdk-libsparse-utils
 
+      - name: Restore cached Android 12 ARM64 base GSI
+        uses: actions/cache@v4
+        with:
+          path: base.img.gz
+          key: experience-base-gsi-lineage-19.1-20250606-arm64-bgn-v1
+
       - name: Download and verify Android 12 ARM64 base GSI
         shell: bash
         run: |
           set -Eeuo pipefail
           mkdir -p dist/metadata
-          wget --https-only --max-redirect=20 --tries=4 --retry-connrefused --timeout=90 -O base.img.gz "$BASE_URL"
+          if [[ ! -s base.img.gz ]]; then
+            wget --https-only --max-redirect=20 --tries=4 --retry-connrefused --timeout=90 -O base.img.gz "$BASE_URL"
+          else
+            echo "Using cached base GSI archive."
+          fi
           gzip -t base.img.gz
           gzip -dc base.img.gz > base.img
           test -s base.img
