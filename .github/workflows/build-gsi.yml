@@ -67,7 +67,7 @@ jobs:
               echo "::error::Android SDK command-line tools (sdkmanager) were not found under $SDK_ROOT"
               exit 1
             fi
-            SDK_ROOT="$(dirname "$(dirname "$(dirname "$SDKMANAGER")")")"
+            SDK_ROOT="$(dirname "$(dirname "$(dirname "$(dirname "$SDKMANAGER")")")")"
             echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
             echo "$SDK_ROOT/cmdline-tools/$(basename "$(dirname "$(dirname "$SDKMANAGER")")")/bin" >> "$GITHUB_PATH"
           else
