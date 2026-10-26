@@ -25,6 +25,8 @@ on:
       - "camera/**"
       - "converter/**"
       - "bootanimation/**"
+      - "ota-updater/**"
+      - "ota/**"
 
 permissions:
   contents: read
@@ -87,7 +89,7 @@ jobs:
           set -euo pipefail
           gradle --no-daemon assembleDebug
           mkdir -p dist/apks
-          for module in launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter; do
+          for module in launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter ota-updater; do
             apk="$module/build/outputs/apk/debug/$module-debug.apk"
             if [ ! -s "$apk" ]; then
               echo "::error::Expected APK missing: $apk"
@@ -176,6 +178,7 @@ jobs:
               gallery) appdir="ExperienceGallery" ;;
               camera) appdir="ExperienceCamera" ;;
               converter) appdir="ExperienceConverter" ;;
+              ota-updater) appdir="ExperienceUpdater" ;;
               *) echo "::error::Unexpected APK module: $module"; exit 1 ;;
             esac
             sudo install -d -m 0755 "mountpoint/system/app/$appdir"
