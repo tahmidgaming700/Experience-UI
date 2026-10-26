@@ -151,7 +151,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           sudo apt-get update
-          sudo apt-get install -y e2fsprogs gzip wget file qemu-utils android-sdk-libsparse-utils
+          sudo apt-get install -y e2fsprogs gzip wget file android-sdk-libsparse-utils
 
       - name: Restore cached Android 12 ARM64 base GSI
         uses: actions/cache@v4
@@ -368,8 +368,8 @@ jobs:
           Boot animation archive/frame/descriptor checks: required to pass.
           Filesystem checks before/after injection: required to pass.
           Embedded APK and boot animation paths: checked using debugfs.
-          Android emulator: app installation smoke test on x86_64; not a GSI boot test.
-          ARM64 GSI virtual-machine boot: NOT VERIFIED.
+          Android emulator/QEMU testing: removed; no virtual boot is performed.
+          ARM64 GSI boot: not tested in CI or on hardware.
           Huawei Y9 JKM-LX2 hardware boot: NOT TESTED.
           OTA updater: metadata checker only; no download, signature verification, or install path is enabled.
           REPORT
