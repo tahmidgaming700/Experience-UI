@@ -8,7 +8,7 @@ set -Eeuo pipefail
 REPO_URL="https://github.com/tahmidgaming700/Experience-UI.git"
 BASE_URL="https://sourceforge.net/projects/andyyan-gsi/files/lineage-19.x/lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz/download"
 BASE_FILE="lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz"
-WORKDIR="\${EXPERIENCE_UI_WORKDIR:-$HOME/Experience-UI}"
+WORKDIR="${EXPERIENCE_UI_WORKDIR:-$HOME/Experience-UI}"
 BUILD_TOOLS_VERSION="35.0.0"
 
 die() { printf '\\n[ERROR] %s\\n' "$*" >&2; exit 1; }
@@ -24,7 +24,7 @@ python -m pip install --user --upgrade Pillow || python -m pip install --upgrade
 
 if [[ -d "$WORKDIR/.git" ]]; then git -C "$WORKDIR" pull --ff-only; else git clone "$REPO_URL" "$WORKDIR"; fi
 cd "$WORKDIR"
-export JAVA_HOME="\${PREFIX}/lib/jvm/java-17-openjdk"
+export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
 export PATH="$JAVA_HOME/bin:$PATH"
 for c in java gradle debugfs dumpe2fs e2fsck resize2fs qemu-img; do need_cmd "$c"; done
 
