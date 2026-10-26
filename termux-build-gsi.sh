@@ -96,7 +96,9 @@ if dir_exists /system/app; then SYSTEM_ROOT=/system
 elif dir_exists /app; then SYSTEM_ROOT=
 else debugfs -R 'ls -l /' system.raw.img || true; debugfs -R 'ls -l /system' system.raw.img || true; die "Cannot detect Android system root (/app or /system/app)."; fi
 echo "Detected system root: ${SYSTEM_ROOT:-/}"
-for d in app media etc; do dir_exists "$SYSTEM_ROOT/$d" || die "Required directory missing: $SYSTEM_ROOT/$d"; done
+for d in app etc; do dir_exists "$SYSTEM_ROOT/$d" || die "Required directory missing: $SYSTEM_ROOT/$d"; done
+# Some valid GSIs omit /system/media; create it before adding bootanimation.
+ensure_dir "$SYSTEM_ROOT/media"
 
 printf '\\n[6/7] Integrating APKs and boot animation...\\n'
 for apk in dist/apks/Experience-*.apk; do
