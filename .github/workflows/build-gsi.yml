@@ -1,3 +1,4 @@
+# Re-run the GSI packaging pipeline so the virtual-boot workflow can test the exact newly-built artifact.
 name: Build Experience UI GSI (GitHub Ubuntu)
 
 on:
