@@ -1,0 +1,115 @@
+name: Experience UI GSI Virtual Boot Test
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build Experience UI GSI (GitHub Ubuntu)"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  virtual-boot-preflight:
+    # Cuttlefish requires a compatible host kernel/KVM and a complete virtual-device
+    # image set. This job deliberately does not substitute a stock emulator image
+    # and claim it booted the ARM64 GSI.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Experience UI
+        uses: actions/checkout@v4
+
+      - name: Install image inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y file e2fsprogs qemu-utils gzip wget python3-pip
+
+      - name: Download the exact current base GSI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/screenshots test-results/logs
+          URL='https://sourceforge.net/projects/andyyan-gsi/files/lineage-19.x/lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz/download'
+          wget --https-only --max-redirect=20 --tries=3 --timeout=60 -O base.img.gz "$URL"
+          gzip -t base.img.gz
+          gzip -dc base.img.gz > base.img
+          file base.img | tee test-results/logs/image-type.txt
+          sha256sum base.img | tee test-results/logs/gsi-sha256.txt
+          qemu-img info base.img | tee test-results/logs/qemu-img-info.txt
+          {
+            echo '# Experience UI GSI virtual boot report'
+            echo
+            echo '- Target: exact repacked base GSI lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed'
+            echo '- Architecture: ARM64'
+            echo '- Android base: Android 12 / LineageOS 19.1'
+            echo '- Result: NOT BOOTED'
+            echo '- Reason: a system GSI alone is not a complete virtual-device boot bundle; it needs a compatible kernel/boot ramdisk and matching vendor/device configuration.'
+            echo '- This workflow will not substitute an x86_64 stock emulator and misreport that as a GSI boot.'
+            echo
+            echo 'This job performs image preflight only. It does not claim Android reached boot animation or launcher.'
+          } > test-results/REPORT.md
+
+      - name: Check whether required boot components are available
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/logs
+          {
+            echo 'GitHub-hosted runner architecture:'
+            uname -m
+            echo
+            echo 'KVM availability:'
+            if [ -e /dev/kvm ]; then ls -l /dev/kvm; else echo '/dev/kvm is not available'; fi
+            echo
+            echo 'Repository boot component candidates:'
+            find . -maxdepth 5 -type f \( -name 'boot.img' -o -name 'vendor_boot.img' -o -name 'init_boot.img' -o -name 'vendor.img' -o -name 'vbmeta.img' \) -print | tee test-results/logs/boot-components.txt || true
+          } | tee test-results/logs/host-preflight.txt
+
+          if [ "$(uname -m)" != "aarch64" ]; then
+            echo 'Host is not ARM64; native ARM64 guest execution cannot be assumed.' | tee -a test-results/logs/host-preflight.txt
+          fi
+          if ! find . -maxdepth 5 -type f \( -name 'boot.img' -o -name 'vendor_boot.img' \) -print -quit | grep -q .; then
+            echo 'Missing boot.img/vendor_boot.img: exact GSI virtual boot is blocked.' | tee -a test-results/logs/host-preflight.txt
+          fi
+
+      - name: Create clear screenshot placeholder for unavailable virtual display
+        shell: bash
+        run: |
+          python3 -m pip install --user Pillow
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw
+          out = 'test-results/screenshots/virtual-boot-not-started.png'
+          im = Image.new('RGB', (1080, 1920), '#10151f')
+          d = ImageDraw.Draw(im)
+          d.text((70, 140), 'EXPERIENCE UI', fill='#ffffff', stroke_width=0)
+          d.text((70, 230), 'GSI VIRTUAL BOOT TEST', fill='#8db7ff')
+          lines = [
+              'STATUS: NOT BOOTED',
+              '',
+              'This is a test-status card, NOT a',
+              'screenshot of Android running.',
+              '',
+              'The ARM64 GSI needs a compatible',
+              'kernel, boot ramdisk and vendor setup.',
+              '',
+              'See REPORT.md and logs for details.'
+          ]
+          y = 430
+          for line in lines:
+              d.text((70, y), line, fill='#ffffff')
+              y += 78
+          im.save(out)
+          print(f'Wrote {out}')
+          PY
+
+      - name: Upload virtual boot report, screenshot and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experience-ui-gsi-virtual-boot-test
+          path: test-results/
+          if-no-files-found: error
+          retention-days: 14
