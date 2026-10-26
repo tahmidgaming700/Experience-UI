@@ -223,7 +223,8 @@ jobs:
           fi
           echo "Detected Android system content root: ${SYSTEM_ROOT:-/}"
           require_dir "${SYSTEM_ROOT}/app"
-          require_dir "${SYSTEM_ROOT}/media"
+          # Some valid GSIs omit /system/media; create it before adding bootanimation.
+          ensure_dir "${SYSTEM_ROOT}/media"
           require_dir "${SYSTEM_ROOT}/etc"
 
           for apk in dist/apks/Experience-*.apk; do
