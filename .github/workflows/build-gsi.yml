@@ -276,11 +276,15 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Each Actions run step starts a fresh shell; define helpers locally.
           dir_exists() {
             local details
             details="$(debugfs -R "stat $1" system.raw.img 2>&1 || true)"
             grep -q 'Type: directory' <<<"$details"
+          }
+          file_exists() {
+            local details
+            details="$(debugfs -R "stat $1" system.raw.img 2>&1 || true)"
+            grep -q 'Type: regular' <<<"$details"
           }
           if dir_exists /system/app; then
             SYSTEM_ROOT=/system
@@ -292,19 +296,41 @@ jobs:
             debugfs -R 'ls -l /system' system.raw.img || true
             exit 1
           fi
+          echo "Verifying system content root: ${SYSTEM_ROOT:-/}"
           debugfs -R "ls -l ${SYSTEM_ROOT}/app" system.raw.img | tee dist/metadata/integrated-apps.txt
-          debugfs -R "stat ${SYSTEM_ROOT}/media/bootanimation.zip" system.raw.img > dist/metadata/integrated-bootanimation.txt
-          debugfs -R "stat ${SYSTEM_ROOT}/etc/experience-ui/BUILD_INFO.txt" system.raw.img > dist/metadata/integrated-build-info.txt
-          grep -q ExperienceUpdater dist/metadata/integrated-apps.txt
-          grep -q bootanimation.zip dist/metadata/integrated-bootanimation.txt
+
+          BOOT_PATH=""
+          for candidate in "${SYSTEM_ROOT}/media/bootanimation.zip" /system/media/bootanimation.zip /media/bootanimation.zip; do
+            if file_exists "$candidate"; then BOOT_PATH="$candidate"; break; fi
+          done
+          if [[ -z "$BOOT_PATH" ]]; then
+            echo "::error::Boot animation is missing. Listing candidate media directories:"
+            debugfs -R 'ls -l /media' system.raw.img || true
+            debugfs -R 'ls -l /system/media' system.raw.img || true
+            exit 1
+          fi
+          debugfs -R "stat $BOOT_PATH" system.raw.img | tee dist/metadata/integrated-bootanimation.txt
           grep -q 'Type: regular' dist/metadata/integrated-bootanimation.txt
+
+          BUILD_INFO_PATH=""
+          for candidate in "${SYSTEM_ROOT}/etc/experience-ui/BUILD_INFO.txt" /system/etc/experience-ui/BUILD_INFO.txt /etc/experience-ui/BUILD_INFO.txt; do
+            if file_exists "$candidate"; then BUILD_INFO_PATH="$candidate"; break; fi
+          done
+          if [[ -z "$BUILD_INFO_PATH" ]]; then
+            echo "::error::Experience UI build metadata is missing."
+            debugfs -R 'ls -l /system/etc/experience-ui' system.raw.img || true
+            debugfs -R 'ls -l /etc/experience-ui' system.raw.img || true
+            exit 1
+          fi
+          debugfs -R "stat $BUILD_INFO_PATH" system.raw.img | tee dist/metadata/integrated-build-info.txt
           grep -q 'Type: regular' dist/metadata/integrated-build-info.txt
+
+          grep -q ExperienceUpdater dist/metadata/integrated-apps.txt
           for appdir in ExperienceLauncher ExperienceSettings ExperienceSetupWizard ExperienceDialer ExperienceMessages ExperienceContacts ExperienceNotes ExperienceClock ExperienceCalendar ExperienceCalculator ExperienceFiles ExperienceGallery ExperienceCamera ExperienceConverter ExperienceUpdater; do
-            output="$(debugfs -R "stat ${SYSTEM_ROOT}/app/$appdir/$appdir.apk" system.raw.img 2>&1)"
+            output="$(debugfs -R "stat ${SYSTEM_ROOT}/app/$appdir/$appdir.apk" system.raw.img 2>&1 || true)"
             grep -q 'Type: regular' <<<"$output" || { echo "::error::Missing integrated APK: $appdir"; exit 1; }
           done
           e2fsck -fn system.raw.img
-
       - name: Android emulator APK smoke test
         shell: bash
         run: |
