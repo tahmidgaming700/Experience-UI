@@ -181,25 +181,43 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Do not mount the filesystem: debugfs writes into ext4 directly and
-          # avoids the failing loop-mount/autodetection path from earlier runs.
-          debugfs -R 'stat /app' system.raw.img >/dev/null 2>&1 || {
-            echo "::error::Expected system partition root /app missing."
-            debugfs -R 'ls -l /' system.raw.img
-            exit 1
+          # debugfs often exits 0 even when a requested path is missing, so
+          # test its output rather than relying on the process exit code.
+          path_type() {
+            debugfs -R "stat $1" system.raw.img 2>&1 | sed -n 's/^[[:space:]]*Type: \([^ ]*\).*/\1/p' | head -n 1
           }
-          debugfs -R 'stat /media' system.raw.img >/dev/null 2>&1 || {
-            echo "::error::Expected system partition root /media missing."
-            debugfs -R 'ls -l /' system.raw.img
-            exit 1
-          }
-          write_image() { debugfs -w -R "$1" system.raw.img; }
-          ensure_dir() {
-            if ! debugfs -R "stat $1" system.raw.img >/dev/null 2>&1; then
-              write_image "mkdir $1"
+          require_dir() {
+            local path="$1"
+            local type
+            type="$(path_type "$path" || true)"
+            if [[ "$type" != "directory" ]]; then
+              echo "::error::Required directory missing from base system image: $path (type='$type')"
+              debugfs -R 'ls -l /' system.raw.img || true
+              exit 1
             fi
-            debugfs -R "stat $1" system.raw.img >/dev/null 2>&1
           }
+          write_image() {
+            debugfs -w -R "$1" system.raw.img
+          }
+          ensure_dir() {
+            local path="$1"
+            local type
+            type="$(path_type "$path" || true)"
+            if [[ "$type" != "directory" ]]; then
+              write_image "mkdir $path"
+            fi
+            type="$(path_type "$path" || true)"
+            if [[ "$type" != "directory" ]]; then
+              echo "::error::Could not create directory in image: $path (type='$type')"
+              exit 1
+            fi
+          }
+
+          # A system.img filesystem normally exposes app/media/etc at its root.
+          # Fail explicitly if the downloaded base uses a different layout.
+          require_dir /app
+          require_dir /media
+          require_dir /etc
 
           for apk in dist/apks/Experience-*.apk; do
             module="$(basename "$apk" .apk | sed 's/^Experience-//')"
@@ -224,7 +242,10 @@ jobs:
             ensure_dir "/app/$appdir"
             write_image "write $apk /app/$appdir/$appdir.apk"
             write_image "set_inode_field /app/$appdir/$appdir.apk mode 0100644"
-            debugfs -R "stat /app/$appdir/$appdir.apk" system.raw.img >/dev/null
+            if ! debugfs -R "stat /app/$appdir/$appdir.apk" system.raw.img 2>&1 | grep -q 'Type: regular'; then
+              echo "::error::APK was not written into image: $appdir"
+              exit 1
+            fi
           done
 
           write_image "write dist/bootanimation/bootanimation.zip /media/bootanimation.zip"
@@ -252,8 +273,11 @@ jobs:
           debugfs -R 'stat /etc/experience-ui/BUILD_INFO.txt' system.raw.img > dist/metadata/integrated-build-info.txt
           grep -q ExperienceUpdater dist/metadata/integrated-apps.txt
           grep -q bootanimation.zip dist/metadata/integrated-bootanimation.txt
+          grep -q 'Type: regular' dist/metadata/integrated-bootanimation.txt
+          grep -q 'Type: regular' dist/metadata/integrated-build-info.txt
           for appdir in ExperienceLauncher ExperienceSettings ExperienceSetupWizard ExperienceDialer ExperienceMessages ExperienceContacts ExperienceNotes ExperienceClock ExperienceCalendar ExperienceCalculator ExperienceFiles ExperienceGallery ExperienceCamera ExperienceConverter ExperienceUpdater; do
-            debugfs -R "stat /app/$appdir/$appdir.apk" system.raw.img >/dev/null
+            output="$(debugfs -R "stat /app/$appdir/$appdir.apk" system.raw.img 2>&1)"
+            grep -q 'Type: regular' <<<"$output" || { echo "::error::Missing integrated APK: $appdir"; exit 1; }
           done
           e2fsck -fn system.raw.img
 
