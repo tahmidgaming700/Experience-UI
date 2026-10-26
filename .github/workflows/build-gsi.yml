@@ -297,7 +297,7 @@ jobs:
           cp --reflink=auto system.raw.img dist/image/ExperienceUI-Android12-arm64-experimental.img
           file dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/output-image-file.txt
           qemu-img info dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/qemu-image-info.txt
-          sha256sum dist/image/HarmonyExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/HarmonyExperienceUI-image.sha256
+          sha256sum dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/ExperienceUI-image.sha256
           cat > dist/metadata/TEST-REPORT.txt <<'REPORT'
           APK ZIP/signature/metadata checks: required to pass.
           Boot animation archive/frame/descriptor checks: required to pass.
