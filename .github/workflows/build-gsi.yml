@@ -86,7 +86,7 @@ jobs:
           path: |
             bootanimation/bootanimation.zip
             bootanimation/experience-boot-preview.gif
-          key: experience-bootanimation-\${{ hashFiles('bootanimation/generate_bootanimation.py') }}
+          key: experience-bootanimation-${{ hashFiles('bootanimation/generate_bootanimation.py') }}
 
       - name: Build every app module
         shell: bash
