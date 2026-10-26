@@ -184,9 +184,9 @@ jobs:
           # debugfs often exits 0 even when a requested path is missing, so
           # test its output rather than relying on the process exit code.
           dir_exists() {
-            local listing
-            listing="$(debugfs -R "ls -l $1" system.raw.img 2>&1 || true)"
-            grep -qE '^[[:space:]]*[0-9]+[[:space:]]+40[0-7]{3}[[:space:]]+\(2\)' <<<"$listing"
+            local details
+            details="$(debugfs -R "stat $1" system.raw.img 2>&1 || true)"
+            grep -q 'Type: directory' <<<"$details"
           }
           require_dir() {
             local path="$1"
@@ -278,11 +278,20 @@ jobs:
           set -Eeuo pipefail
           # Each Actions run step starts a fresh shell; define helpers locally.
           dir_exists() {
-            local listing
-            listing="$(debugfs -R "ls -l $1" system.raw.img 2>&1 || true)"
-            grep -qE '^[[:space:]]*[0-9]+[[:space:]]+40[0-7]{3}[[:space:]]+\\(2\\)' <<<"$listing"
+            local details
+            details="$(debugfs -R "stat $1" system.raw.img 2>&1 || true)"
+            grep -q 'Type: directory' <<<"$details"
           }
-          if dir_exists /system/app; then SYSTEM_ROOT=/system; else SYSTEM_ROOT=; fi
+          if dir_exists /system/app; then
+            SYSTEM_ROOT=/system
+          elif dir_exists /app; then
+            SYSTEM_ROOT=
+          else
+            echo "::error::Cannot locate app directory in the repacked image."
+            debugfs -R 'ls -l /' system.raw.img || true
+            debugfs -R 'ls -l /system' system.raw.img || true
+            exit 1
+          fi
           debugfs -R "ls -l ${SYSTEM_ROOT}/app" system.raw.img | tee dist/metadata/integrated-apps.txt
           debugfs -R "stat ${SYSTEM_ROOT}/media/bootanimation.zip" system.raw.img > dist/metadata/integrated-bootanimation.txt
           debugfs -R "stat ${SYSTEM_ROOT}/etc/experience-ui/BUILD_INFO.txt" system.raw.img > dist/metadata/integrated-build-info.txt
