@@ -14,7 +14,7 @@ BUILD_TOOLS_VERSION="35.0.0"
 die() { printf '\\n[ERROR] %s\\n' "$*" >&2; exit 1; }
 need_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
 
-[[ -n "\${PREFIX:-}" ]] || die "Run this script inside Termux."
+[[ -n "${PREFIX:-}" ]] || die "Run this script inside Termux."
 printf '%s\\n' "=== Experience UI Termux GSI builder ==="
 printf '%s\\n' "This script repacks a downloaded system image. It does not flash your device."
 
@@ -32,15 +32,15 @@ mkdir -p dist/apks dist/bootanimation dist/metadata dist/image
 printf '\\n[1/7] Building app modules...\\n'
 gradle --no-daemon --stacktrace clean assembleDebug
 modules=(launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter ota-updater)
-for module in "\${modules[@]}"; do
+for module in "${modules[@]}"; do
   apk="$module/build/outputs/apk/debug/$module-debug.apk"
   [[ -s "$apk" ]] || die "APK missing: $apk. Check whether Android SDK/Gradle is configured."
   cp "$apk" "dist/apks/Experience-$module.apk"
 done
 
 printf '\\n[2/7] Validating APK ZIPs...\\n'
-AAPT="\${ANDROID_HOME:-$HOME/Android/Sdk}/build-tools/$BUILD_TOOLS_VERSION/aapt"
-APKSIGNER="\${ANDROID_HOME:-$HOME/Android/Sdk}/build-tools/$BUILD_TOOLS_VERSION/apksigner"
+AAPT="${ANDROID_HOME:-$HOME/Android/Sdk}/build-tools/$BUILD_TOOLS_VERSION/aapt"
+APKSIGNER="${ANDROID_HOME:-$HOME/Android/Sdk}/build-tools/$BUILD_TOOLS_VERSION/apksigner"
 if [[ -x "$AAPT" && -x "$APKSIGNER" ]]; then
   for apk in dist/apks/*.apk; do "$AAPT" dump badging "$apk" >/dev/null; "$APKSIGNER" verify --verbose "$apk"; unzip -t "$apk" >/dev/null; done
 else
@@ -91,7 +91,7 @@ ensure_dir() {
 if [[ "$(path_type /system/app || true)" == directory ]]; then SYSTEM_ROOT=/system
 elif [[ "$(path_type /app || true)" == directory ]]; then SYSTEM_ROOT=
 else debugfs -R 'ls -l /' system.raw.img || true; die "Cannot detect Android system root (/app or /system/app)."; fi
-echo "Detected system root: \${SYSTEM_ROOT:-/}"
+echo "Detected system root: ${SYSTEM_ROOT:-/}"
 for d in app media etc; do [[ "$(path_type "$SYSTEM_ROOT/$d" || true)" == directory ]] || die "Required directory missing: $SYSTEM_ROOT/$d"; done
 
 printf '\\n[6/7] Integrating APKs and boot animation...\\n'
