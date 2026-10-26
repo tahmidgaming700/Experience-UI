@@ -83,7 +83,7 @@ path_type() { debugfs -R "stat $1" system.raw.img 2>&1 | sed -n 's/^[[:space:]]*
 dir_exists() {
   local listing
   listing="$(debugfs -R "ls -l $1" system.raw.img 2>&1 || true)"
-  grep -qE '^[[:space:]]*[0-9]+[[:space:]]+40[0-7]{3}[[:space:]]+\\(2\\)' <<<"$listing"
+  grep -qE '^[[:space:]]*[0-9]+[[:space:]]+40[0-7]{3}[[:space:]]+\(2\)' <<<"$listing"
 }
 write_image() { debugfs -w -R "$1" system.raw.img >/dev/null; }
 ensure_dir() {
