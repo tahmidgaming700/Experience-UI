@@ -80,19 +80,23 @@ resize2fs system.raw.img
 e2fsck -fn system.raw.img
 
 path_type() { debugfs -R "stat $1" system.raw.img 2>&1 | sed -n 's/^[[:space:]]*Type: \\([^ ]*\\).*/\\1/p' | head -n 1; }
+dir_exists() {
+  local listing
+  listing="$(debugfs -R "ls -l $1" system.raw.img 2>&1 || true)"
+  grep -qE '^[[:space:]]*[0-9]+[[:space:]]+40[0-7]{3}[[:space:]]+\\(2\\)' <<<"$listing"
+}
 write_image() { debugfs -w -R "$1" system.raw.img >/dev/null; }
 ensure_dir() {
-  local p="$1" t
-  t="$(path_type "$p" || true)"
-  [[ "$t" == directory ]] || write_image "mkdir $p"
-  [[ "$(path_type "$p" || true)" == directory ]] || die "Could not create image directory: $p"
+  local p="$1"
+  dir_exists "$p" || write_image "mkdir $p"
+  dir_exists "$p" || die "Could not create image directory: $p"
 }
 
-if [[ "$(path_type /system/app || true)" == directory ]]; then SYSTEM_ROOT=/system
-elif [[ "$(path_type /app || true)" == directory ]]; then SYSTEM_ROOT=
-else debugfs -R 'ls -l /' system.raw.img || true; die "Cannot detect Android system root (/app or /system/app)."; fi
+if dir_exists /system/app; then SYSTEM_ROOT=/system
+elif dir_exists /app; then SYSTEM_ROOT=
+else debugfs -R 'ls -l /' system.raw.img || true; debugfs -R 'ls -l /system' system.raw.img || true; die "Cannot detect Android system root (/app or /system/app)."; fi
 echo "Detected system root: ${SYSTEM_ROOT:-/}"
-for d in app media etc; do [[ "$(path_type "$SYSTEM_ROOT/$d" || true)" == directory ]] || die "Required directory missing: $SYSTEM_ROOT/$d"; done
+for d in app media etc; do dir_exists "$SYSTEM_ROOT/$d" || die "Required directory missing: $SYSTEM_ROOT/$d"; done
 
 printf '\\n[6/7] Integrating APKs and boot animation...\\n'
 for apk in dist/apks/Experience-*.apk; do
@@ -127,7 +131,7 @@ write_image "set_inode_field $SYSTEM_ROOT/etc/experience-ui/BUILD_INFO.txt mode 
 e2fsck -fn system.raw.img
 
 printf '\\n[7/7] Verifying and packaging...\\n'
-VERIFY_ROOT="$(if [[ "$(path_type /system/app || true)" == directory ]]; then echo /system; else echo ''; fi)"
+if dir_exists /system/app; then VERIFY_ROOT=/system; else VERIFY_ROOT=; fi
 debugfs -R "ls -l $VERIFY_ROOT/app" system.raw.img | tee dist/metadata/integrated-apps.txt
 for appdir in ExperienceLauncher ExperienceSettings ExperienceSetupWizard ExperienceDialer ExperienceMessages ExperienceContacts ExperienceNotes ExperienceClock ExperienceCalendar ExperienceCalculator ExperienceFiles ExperienceGallery ExperienceCamera ExperienceConverter ExperienceUpdater; do
   debugfs -R "stat $VERIFY_ROOT/app/$appdir/$appdir.apk" system.raw.img 2>&1 | grep -q 'Type: regular' || die "Missing integrated APK: $appdir"
