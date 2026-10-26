@@ -183,15 +183,15 @@ jobs:
           set -Eeuo pipefail
           # debugfs often exits 0 even when a requested path is missing, so
           # test its output rather than relying on the process exit code.
-          path_type() {
-            debugfs -R "stat $1" system.raw.img 2>&1 | sed -n 's/^[[:space:]]*Type: \([^ ]*\).*/\1/p' | head -n 1
+          dir_exists() {
+            local listing
+            listing="$(debugfs -R "ls -l $1" system.raw.img 2>&1 || true)"
+            grep -qE '^[[:space:]]*[0-9]+[[:space:]]+40[0-7]{3}[[:space:]]+\\(2\\)' <<<"$listing"
           }
           require_dir() {
             local path="$1"
-            local type
-            type="$(path_type "$path" || true)"
-            if [[ "$type" != "directory" ]]; then
-              echo "::error::Required directory missing from base system image: $path (type='$type')"
+            if ! dir_exists "$path"; then
+              echo "::error::Required directory missing from base system image: $path"
               debugfs -R 'ls -l /' system.raw.img || true
               exit 1
             fi
@@ -201,14 +201,9 @@ jobs:
           }
           ensure_dir() {
             local path="$1"
-            local type
-            type="$(path_type "$path" || true)"
-            if [[ "$type" != "directory" ]]; then
-              write_image "mkdir $path"
-            fi
-            type="$(path_type "$path" || true)"
-            if [[ "$type" != "directory" ]]; then
-              echo "::error::Could not create directory in image: $path (type='$type')"
+            if ! dir_exists "$path"; then write_image "mkdir $path"; fi
+            if ! dir_exists "$path"; then
+              echo "::error::Could not create directory in image: $path"
               exit 1
             fi
           }
@@ -216,9 +211,9 @@ jobs:
           # GSI builds differ: some expose Android system contents at the
           # filesystem root (/app, /media, /etc), while others nest them under
           # /system. Detect the actual layout from the image instead of guessing.
-          if [[ "$(path_type /system/app || true)" == "directory" ]]; then
+          if dir_exists /system/app; then
             SYSTEM_ROOT=/system
-          elif [[ "$(path_type /app || true)" == "directory" ]]; then
+          elif dir_exists /app; then
             SYSTEM_ROOT=
           else
             echo "::error::Cannot locate app/ in the base image root or /system/app."
@@ -280,7 +275,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          SYSTEM_ROOT="$(if debugfs -R 'stat /system/app' system.raw.img 2>&1 | grep -q 'Type: directory'; then echo /system; else echo ''; fi)"
+          if dir_exists /system/app; then SYSTEM_ROOT=/system; else SYSTEM_ROOT=; fi
           debugfs -R "ls -l ${SYSTEM_ROOT}/app" system.raw.img | tee dist/metadata/integrated-apps.txt
           debugfs -R "stat ${SYSTEM_ROOT}/media/bootanimation.zip" system.raw.img > dist/metadata/integrated-bootanimation.txt
           debugfs -R "stat ${SYSTEM_ROOT}/etc/experience-ui/BUILD_INFO.txt" system.raw.img > dist/metadata/integrated-build-info.txt
