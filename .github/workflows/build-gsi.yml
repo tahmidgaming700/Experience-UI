@@ -342,8 +342,30 @@ jobs:
             echo "::error::Android emulator tools unavailable"
             exit 1
           fi
+
+          # Keep AVD creation and emulator lookup on the same explicit directory.
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           "$SDKMANAGER" "system-images;android-35;google_apis;x86_64"
-          echo "no" | "$AVDMANAGER" create avd -n HarmonySmoke -k "system-images;android-35;google_apis;x86_64" -d pixel_2 --force
+
+          AVD_PATH="$ANDROID_AVD_HOME/HarmonySmoke.avd"
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            -n HarmonySmoke \
+            -k "system-images;android-35;google_apis;x86_64" \
+            -d pixel_2 \
+            --path "$AVD_PATH" \
+            --force
+
+          # Fail here with useful diagnostics rather than letting emulator report
+          # a confusing "Unknown AVD name" later.
+          if [[ ! -s "$ANDROID_AVD_HOME/HarmonySmoke.ini" || ! -s "$AVD_PATH/config.ini" ]]; then
+            echo "::error::AVD creation did not produce the expected config files"
+            find "$HOME/.android" -maxdepth 4 -type f -print 2>/dev/null || true
+            "$EMULATOR" -list-avds || true
+            exit 1
+          fi
+          "$EMULATOR" -list-avds | grep -Fx HarmonySmoke
+
           nohup "$EMULATOR" -avd HarmonySmoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -accel off -wipe-data > emulator.log 2>&1 &
           EMULATOR_PID=$!
           cleanup() { adb emu kill >/dev/null 2>&1 || true; kill "$EMULATOR_PID" >/dev/null 2>&1 || true; }
@@ -351,12 +373,17 @@ jobs:
           adb start-server
           booted=false
           for i in $(seq 1 120); do
-            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == 1 ]]; then booted=true; break; fi
+            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" == 1 ]]; then booted=true; break; fi
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              echo "::error::Android emulator process exited before boot completed"
+              cat emulator.log
+              exit 1
+            fi
             sleep 2
           done
           if [[ "$booted" != true ]]; then cat emulator.log; echo "::error::Android emulator failed to boot"; exit 1; fi
           for apk in dist/apks/*.apk; do adb install -r "$apk"; done
-          adb shell pm list packages | grep 'com\.experience\.' | tee dist/metadata/emulator-installed-packages.txt
+          adb shell pm list packages | grep 'com\\.experience\\.' | tee dist/metadata/emulator-installed-packages.txt
           test -s dist/metadata/emulator-installed-packages.txt
           adb logcat -d -t 3000 > dist/metadata/emulator-logcat.txt
           echo "Passed: APK installation smoke test on Android 15 x86_64." > dist/metadata/EMULATOR-TEST.txt
