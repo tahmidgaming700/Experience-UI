@@ -53,13 +53,30 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK components
+      - name: Configure preinstalled Android SDK
         shell: bash
         run: |
           set -euo pipefail
+          # GitHub-hosted Ubuntu images already include the Android SDK.
+          # Avoid android-actions/setup-android@v3 here: it attempts to install
+          # the removed legacy "tools" package and fails on current repositories.
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          if [ ! -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit)"
+            if [ -z "$SDKMANAGER" ]; then
+              echo "::error::Android SDK command-line tools (sdkmanager) were not found under $SDK_ROOT"
+              exit 1
+            fi
+            SDK_ROOT="$(dirname "$(dirname "$(dirname "$SDKMANAGER")")")"
+            echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+            echo "$SDK_ROOT/cmdline-tools/$(basename "$(dirname "$(dirname "$SDKMANAGER")")")/bin" >> "$GITHUB_PATH"
+          else
+            echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+            echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          fi
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          sdkmanager --version
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
