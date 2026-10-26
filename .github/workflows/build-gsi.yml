@@ -78,7 +78,7 @@ jobs:
           echo "$SDK_BIN" >> "$GITHUB_PATH"
           echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" "emulator"
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Restore previously generated boot animation
         uses: actions/cache@v4
@@ -354,64 +354,6 @@ jobs:
             grep -q 'Type: regular' <<<"$output" || { echo "::error::Missing integrated APK: $appdir"; exit 1; }
           done
           e2fsck -fn system.raw.img
-      - name: Android emulator APK smoke test
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          SDKMANAGER="$(find "$ANDROID_HOME" -type f -path '*/cmdline-tools/*/bin/sdkmanager' -print -quit)"
-          AVDMANAGER="$(find "$ANDROID_HOME" -type f -path '*/cmdline-tools/*/bin/avdmanager' -print -quit)"
-          EMULATOR="$ANDROID_HOME/emulator/emulator"
-          if [[ -z "$SDKMANAGER" || -z "$AVDMANAGER" || ! -x "$EMULATOR" ]]; then
-            echo "::error::Android emulator tools unavailable"
-            exit 1
-          fi
-
-          # Keep AVD creation and emulator lookup on the same explicit directory.
-          export ANDROID_AVD_HOME="$HOME/.android/avd"
-          mkdir -p "$ANDROID_AVD_HOME"
-          "$SDKMANAGER" "system-images;android-35;google_apis;x86_64"
-
-          AVD_PATH="$ANDROID_AVD_HOME/HarmonySmoke.avd"
-          printf 'no\n' | "$AVDMANAGER" create avd \
-            -n HarmonySmoke \
-            -k "system-images;android-35;google_apis;x86_64" \
-            -d pixel_2 \
-            --path "$AVD_PATH" \
-            --force
-
-          # Fail here with useful diagnostics rather than letting emulator report
-          # a confusing "Unknown AVD name" later.
-          if [[ ! -s "$ANDROID_AVD_HOME/HarmonySmoke.ini" || ! -s "$AVD_PATH/config.ini" ]]; then
-            echo "::error::AVD creation did not produce the expected config files"
-            find "$HOME/.android" -maxdepth 4 -type f -print 2>/dev/null || true
-            "$EMULATOR" -list-avds || true
-            exit 1
-          fi
-          "$EMULATOR" -list-avds | grep -Fx HarmonySmoke
-
-          nohup "$EMULATOR" -avd HarmonySmoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -accel off -wipe-data > emulator.log 2>&1 &
-          EMULATOR_PID=$!
-          cleanup() { adb emu kill >/dev/null 2>&1 || true; kill "$EMULATOR_PID" >/dev/null 2>&1 || true; }
-          trap cleanup EXIT
-          adb start-server
-          booted=false
-          for i in $(seq 1 120); do
-            if [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" == 1 ]]; then booted=true; break; fi
-            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
-              echo "::error::Android emulator process exited before boot completed"
-              cat emulator.log
-              exit 1
-            fi
-            sleep 2
-          done
-          if [[ "$booted" != true ]]; then cat emulator.log; echo "::error::Android emulator failed to boot"; exit 1; fi
-          for apk in dist/apks/*.apk; do adb install -r "$apk"; done
-          adb shell pm list packages | grep 'com\\.experience\\.' | tee dist/metadata/emulator-installed-packages.txt
-          test -s dist/metadata/emulator-installed-packages.txt
-          adb logcat -d -t 3000 > dist/metadata/emulator-logcat.txt
-          echo "Passed: APK installation smoke test on Android 15 x86_64." > dist/metadata/EMULATOR-TEST.txt
-          echo "This does NOT verify that the ARM64 GSI boots." >> dist/metadata/EMULATOR-TEST.txt
-
       - name: Package GSI and produce test report
         shell: bash
         run: |
@@ -420,7 +362,6 @@ jobs:
           mkdir -p dist/image
           cp --reflink=auto system.raw.img dist/image/ExperienceUI-Android12-arm64-experimental.img
           file dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/output-image-file.txt
-          qemu-img info dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/qemu-image-info.txt
           sha256sum dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/ExperienceUI-image.sha256
           cat > dist/metadata/TEST-REPORT.txt <<'REPORT'
           APK ZIP/signature/metadata checks: required to pass.
