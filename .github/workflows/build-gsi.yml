@@ -276,6 +276,12 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          # Each Actions run step starts a fresh shell; define helpers locally.
+          dir_exists() {
+            local listing
+            listing="$(debugfs -R "ls -l $1" system.raw.img 2>&1 || true)"
+            grep -qE '^[[:space:]]*[0-9]+[[:space:]]+40[0-7]{3}[[:space:]]+\\(2\\)' <<<"$listing"
+          }
           if dir_exists /system/app; then SYSTEM_ROOT=/system; else SYSTEM_ROOT=; fi
           debugfs -R "ls -l ${SYSTEM_ROOT}/app" system.raw.img | tee dist/metadata/integrated-apps.txt
           debugfs -R "stat ${SYSTEM_ROOT}/media/bootanimation.zip" system.raw.img > dist/metadata/integrated-bootanimation.txt
