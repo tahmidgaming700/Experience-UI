@@ -1,4 +1,4 @@
-name: Build Harmony Experience UI GSI
+name: Build Experience UI GSI (GitHub Ubuntu)
 
 on:
   workflow_dispatch:
@@ -294,9 +294,9 @@ jobs:
           set -Eeuo pipefail
           e2fsck -fn system.raw.img
           mkdir -p dist/image
-          cp --reflink=auto system.raw.img dist/image/HarmonyExperienceUI-Android12-arm64-experimental.img
-          file dist/image/HarmonyExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/output-image-file.txt
-          qemu-img info dist/image/HarmonyExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/qemu-image-info.txt
+          cp --reflink=auto system.raw.img dist/image/ExperienceUI-Android12-arm64-experimental.img
+          file dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/output-image-file.txt
+          qemu-img info dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/qemu-image-info.txt
           sha256sum dist/image/HarmonyExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/HarmonyExperienceUI-image.sha256
           cat > dist/metadata/TEST-REPORT.txt <<'REPORT'
           APK ZIP/signature/metadata checks: required to pass.
@@ -321,7 +321,7 @@ jobs:
       - name: Upload GSI, APKs, boot animation, and diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: harmony-experience-ui-arm64-experimental
+          name: experience-ui-gsi-ubuntu-experimental
           path: dist/
           if-no-files-found: error
           retention-days: 14
