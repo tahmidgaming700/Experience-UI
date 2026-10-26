@@ -213,11 +213,23 @@ jobs:
             fi
           }
 
-          # A system.img filesystem normally exposes app/media/etc at its root.
-          # Fail explicitly if the downloaded base uses a different layout.
-          require_dir /app
-          require_dir /media
-          require_dir /etc
+          # GSI builds differ: some expose Android system contents at the
+          # filesystem root (/app, /media, /etc), while others nest them under
+          # /system. Detect the actual layout from the image instead of guessing.
+          if [[ "$(path_type /system/app || true)" == "directory" ]]; then
+            SYSTEM_ROOT=/system
+          elif [[ "$(path_type /app || true)" == "directory" ]]; then
+            SYSTEM_ROOT=
+          else
+            echo "::error::Cannot locate app/ in the base image root or /system/app."
+            debugfs -R 'ls -l /' system.raw.img || true
+            debugfs -R 'ls -l /system' system.raw.img || true
+            exit 1
+          fi
+          echo "Detected Android system content root: ${SYSTEM_ROOT:-/}"
+          require_dir "${SYSTEM_ROOT}/app"
+          require_dir "${SYSTEM_ROOT}/media"
+          require_dir "${SYSTEM_ROOT}/etc"
 
           for apk in dist/apks/Experience-*.apk; do
             module="$(basename "$apk" .apk | sed 's/^Experience-//')"
@@ -239,18 +251,18 @@ jobs:
               ota-updater) appdir=ExperienceUpdater ;;
               *) echo "::error::Unexpected APK module: $module"; exit 1 ;;
             esac
-            ensure_dir "/app/$appdir"
-            write_image "write $apk /app/$appdir/$appdir.apk"
-            write_image "set_inode_field /app/$appdir/$appdir.apk mode 0100644"
-            if ! debugfs -R "stat /app/$appdir/$appdir.apk" system.raw.img 2>&1 | grep -q 'Type: regular'; then
+            ensure_dir "$SYSTEM_ROOT/app/$appdir"
+            write_image "write $apk $SYSTEM_ROOT/app/$appdir/$appdir.apk"
+            write_image "set_inode_field $SYSTEM_ROOT/app/$appdir/$appdir.apk mode 0100644"
+            if ! debugfs -R "stat $SYSTEM_ROOT/app/$appdir/$appdir.apk" system.raw.img 2>&1 | grep -q 'Type: regular'; then
               echo "::error::APK was not written into image: $appdir"
               exit 1
             fi
           done
 
-          write_image "write dist/bootanimation/bootanimation.zip /media/bootanimation.zip"
-          write_image "set_inode_field /media/bootanimation.zip mode 0100644"
-          ensure_dir /etc/experience-ui
+          write_image "write dist/bootanimation/bootanimation.zip $SYSTEM_ROOT/media/bootanimation.zip"
+          write_image "set_inode_field $SYSTEM_ROOT/media/bootanimation.zip mode 0100644"
+          ensure_dir "$SYSTEM_ROOT/etc/experience-ui"
           cat > dist/metadata/BUILD_INFO.txt <<'INFO'
           Harmony Experience UI — experimental Android 12 GSI repack
           Base: Andy Yan LineageOS 19.1 GApps ARM64
@@ -260,23 +272,24 @@ jobs:
           Huawei Y9 2019 JKM-LX2 compatibility: unverified; not a device-specific ROM
           Do not flash until Treble/VNDK, vendor, bootloader, partition capacity, and restore method are verified.
           INFO
-          write_image "write dist/metadata/BUILD_INFO.txt /etc/experience-ui/BUILD_INFO.txt"
-          write_image "set_inode_field /etc/experience-ui/BUILD_INFO.txt mode 0100644"
+          write_image "write dist/metadata/BUILD_INFO.txt $SYSTEM_ROOT/etc/experience-ui/BUILD_INFO.txt"
+          write_image "set_inode_field $SYSTEM_ROOT/etc/experience-ui/BUILD_INFO.txt mode 0100644"
           e2fsck -fn system.raw.img
 
       - name: Verify integrated files
         shell: bash
         run: |
           set -Eeuo pipefail
-          debugfs -R 'ls -l /app' system.raw.img | tee dist/metadata/integrated-apps.txt
-          debugfs -R 'stat /media/bootanimation.zip' system.raw.img > dist/metadata/integrated-bootanimation.txt
-          debugfs -R 'stat /etc/experience-ui/BUILD_INFO.txt' system.raw.img > dist/metadata/integrated-build-info.txt
+          SYSTEM_ROOT="$(if debugfs -R 'stat /system/app' system.raw.img 2>&1 | grep -q 'Type: directory'; then echo /system; else echo ''; fi)"
+          debugfs -R "ls -l ${SYSTEM_ROOT}/app" system.raw.img | tee dist/metadata/integrated-apps.txt
+          debugfs -R "stat ${SYSTEM_ROOT}/media/bootanimation.zip" system.raw.img > dist/metadata/integrated-bootanimation.txt
+          debugfs -R "stat ${SYSTEM_ROOT}/etc/experience-ui/BUILD_INFO.txt" system.raw.img > dist/metadata/integrated-build-info.txt
           grep -q ExperienceUpdater dist/metadata/integrated-apps.txt
           grep -q bootanimation.zip dist/metadata/integrated-bootanimation.txt
           grep -q 'Type: regular' dist/metadata/integrated-bootanimation.txt
           grep -q 'Type: regular' dist/metadata/integrated-build-info.txt
           for appdir in ExperienceLauncher ExperienceSettings ExperienceSetupWizard ExperienceDialer ExperienceMessages ExperienceContacts ExperienceNotes ExperienceClock ExperienceCalendar ExperienceCalculator ExperienceFiles ExperienceGallery ExperienceCamera ExperienceConverter ExperienceUpdater; do
-            output="$(debugfs -R "stat /app/$appdir/$appdir.apk" system.raw.img 2>&1)"
+            output="$(debugfs -R "stat ${SYSTEM_ROOT}/app/$appdir/$appdir.apk" system.raw.img 2>&1)"
             grep -q 'Type: regular' <<<"$output" || { echo "::error::Missing integrated APK: $appdir"; exit 1; }
           done
           e2fsck -fn system.raw.img
