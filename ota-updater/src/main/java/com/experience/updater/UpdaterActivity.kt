@@ -2,6 +2,7 @@ package com.experience.updater
 
 import android.app.Activity
 import android.os.Bundle
+import android.os.Build
 import android.graphics.Color
 import android.graphics.Typeface
 import android.view.ViewGroup
@@ -15,6 +16,16 @@ class UpdaterActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var details: TextView
     private lateinit var channel: Spinner
+
+    private val experienceBrand: String
+        get() = if (Build.MANUFACTURER.contains("Huawei", ignoreCase = true) ||
+            Build.BRAND.contains("Huawei", ignoreCase = true) ||
+            Build.MANUFACTURER.contains("Honor", ignoreCase = true) ||
+            Build.BRAND.contains("Honor", ignoreCase = true)) {
+            "HARMONY EXPERIENCE UI"
+        } else {
+            "EXPERIENCE UI"
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,12 +44,12 @@ class UpdaterActivity : Activity() {
                 if (bold) setTypeface(typeface, Typeface.BOLD)
                 setPadding(0, 8, 0, 8)
             }
-        root.addView(label("EXPERIENCE UI", 13f, Color.rgb(100, 202, 255), true))
+        root.addView(label(experienceBrand, 13f, Color.rgb(100, 202, 255), true))
         root.addView(label("System updater", 30f, Color.WHITE, true))
         root.addView(label("Monthly security releases • Early access", 14f, Color.LTGRAY))
         channel = Spinner(this).apply {
             adapter = ArrayAdapter(this@UpdaterActivity, android.R.layout.simple_spinner_dropdown_item,
-                listOf("Stable — monthly security releases", "Early access — Experience UI 2 (Android 13)"))
+                listOf("Stable — monthly security releases", "Early access — Harmony Experience UI 2 (Android 13)"))
         }
         root.addView(channel, ViewGroup.LayoutParams(-1, -2))
         details = label("Select a channel and check the published update manifest.", 15f, Color.WHITE)
@@ -68,7 +79,8 @@ class UpdaterActivity : Activity() {
                 if (code !in 200..299) error("Manifest request returned HTTP $code")
                 val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
                 connection.disconnect()
-                val release = json.getJSONObject(if (channel.selectedItemPosition == 1) "early_access" else "stable")
+                val selectedChannel = channel.selectedItemPosition
+                val release = json.getJSONObject(if (selectedChannel == 1) "early_access" else "stable")
                 val version = release.optString("version", "Unknown version")
                 val patch = release.optString("security_patch", "Not specified")
                 val notes = release.optString("release_notes", "No release notes")
