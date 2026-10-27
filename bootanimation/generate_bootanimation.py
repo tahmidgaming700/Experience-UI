@@ -33,7 +33,7 @@ def font(size, bold=False):
 
 def center(draw, text, y, fnt, fill):
     box = draw.textbbox((0, 0), text, font=fnt)
-    draw.text(((W - (box[2] - box[0]) / 2, y),), text, font=fnt, fill=fill)
+    draw.text(((W - (box[2] - box[0])) / 2, y), text, font=fnt, fill=fill)
 
 def background():
     im = Image.new("RGB", (W, H))
