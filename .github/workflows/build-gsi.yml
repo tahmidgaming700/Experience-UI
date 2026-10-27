@@ -26,6 +26,8 @@ on:
       - "ota-updater/**"
       - "ota/**"
       - "bootanimation/**"
+      - "core-ui/**"
+      - "design/experience-glass/**"
       - "settings.gradle.kts"
       - "build.gradle.kts"
 
