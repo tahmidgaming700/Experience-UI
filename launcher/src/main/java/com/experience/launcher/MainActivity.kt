@@ -79,7 +79,13 @@ private fun ExperienceHome(
     apps: List<android.content.pm.ResolveInfo>,
     packageManager: android.content.pm.PackageManager
 ) {
-    val now by produceState(initialValue = System.currentTimeMillis()) {\n        while (true) {\n            value = System.currentTimeMillis()\n            kotlinx.coroutines.delay(30_000)\n        }\n    }\n    var search by rememberSaveable { mutableStateOf("") }
+    val now by produceState(initialValue = System.currentTimeMillis()) {
+        while (true) {
+            value = System.currentTimeMillis()
+            kotlinx.coroutines.delay(30_000)
+        }
+    }
+    var search by rememberSaveable { mutableStateOf("") }
     val filtered = apps.filter {
         it.loadLabel(packageManager).toString().contains(search, ignoreCase = true)
     }
@@ -118,7 +124,7 @@ private fun ExperienceHome(
 
             Row(
                 Modifier.fillMaxWidth().clip(CircleShape)
-                    .background(Color(0xDDE7F0FF)).clickable { search = "" }
+                    .background(Color(0xDDE7F0FF))
                     .padding(horizontal = 18.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -132,7 +138,11 @@ private fun ExperienceHome(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                if (search.isNotEmpty()) {\n                    IconButton(onClick = { search = "" }) { Text("×", color = Color(0xFF4285F4), fontSize = 25.sp) }\n                } else {\n                    Text("⌕", color = Color(0xFF4285F4), fontSize = 25.sp)\n                }
+                if (search.isNotEmpty()) {
+                    IconButton(onClick = { search = "" }) { Text("×", color = Color(0xFF4285F4), fontSize = 25.sp) }
+                } else {
+                    Text("⌕", color = Color(0xFF4285F4), fontSize = 25.sp)
+                }
             }
 
             Row(
