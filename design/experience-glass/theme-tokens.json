@@ -1,0 +1,32 @@
+{
+  "name": "Experience UI Hybrid Glass",
+  "version": 1,
+  "influences": [
+    "One UI 8.5-inspired usability",
+    "Liquid Glass-inspired surfaces",
+    "Huawei-inspired flowing glass ribbons"
+  ],
+  "colors": {
+    "lightBackground": "#F1F5FA",
+    "lightSurface": "#F9FBFF",
+    "darkBackground": "#080F1B",
+    "darkSurface": "#111C2B",
+    "accentBlue": "#7CCBFF",
+    "accentCyan": "#8CEDE4",
+    "accentViolet": "#B7A7FF"
+  },
+  "shapes": {
+    "smallDp": 14,
+    "mediumDp": 20,
+    "largeDp": 28,
+    "extraLargeDp": 34
+  },
+  "motion": {
+    "preferredDurationMs": 260,
+    "respectReducedMotion": true
+  },
+  "performance": {
+    "blurOptional": true,
+    "lowMemoryFallback": true
+  }
+}
