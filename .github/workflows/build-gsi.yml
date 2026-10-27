@@ -142,7 +142,7 @@ jobs:
               names = z.namelist()
               assert "desc.txt" in names
               assert any(n.startswith("part0/") and n.endswith(".png") for n in names)
-              assert z.read("desc.txt").decode().splitlines()[0].split() == ["720", "1280", "30"]
+              assert z.read("desc.txt").decode().splitlines()[0].split() == ["1080", "1920", "30"]
           print("Boot animation archive validated")
           PY
           mkdir -p dist/bootanimation
