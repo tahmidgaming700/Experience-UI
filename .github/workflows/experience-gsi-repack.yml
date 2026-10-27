@@ -157,10 +157,10 @@ jobs:
           df() {
             local output
             output="$(debugfs "$@" system.raw.img 2>&1)" || {
-              printf '%s\\n' "$output"
+              printf '%s\n' "$output"
               return 1
             }
-            printf '%s\\n' "$output"
+            printf '%s\n' "$output"
             if grep -Eqi 'File not found|Couldn.t|Invalid|Usage:|Command not found|Filesystem not open' <<<"$output"; then
               echo "::error::debugfs command failed: $*"
               return 1
