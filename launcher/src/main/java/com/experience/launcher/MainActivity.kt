@@ -79,7 +79,7 @@ private fun ExperienceHome(
     apps: List<android.content.pm.ResolveInfo>,
     packageManager: android.content.pm.PackageManager
 ) {
-    var search by rememberSaveable { mutableStateOf("") }
+    val now by produceState(initialValue = System.currentTimeMillis()) {\n        while (true) {\n            value = System.currentTimeMillis()\n            kotlinx.coroutines.delay(30_000)\n        }\n    }\n    var search by rememberSaveable { mutableStateOf("") }
     val filtered = apps.filter {
         it.loadLabel(packageManager).toString().contains(search, ignoreCase = true)
     }
@@ -107,9 +107,9 @@ private fun ExperienceHome(
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(SimpleDateFormat("h:mm", Locale.getDefault()).format(Date()),
+                Text(SimpleDateFormat("h:mm", Locale.getDefault()).format(Date(now)),
                     fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.White)
-                Text("◆  ▰  78%", color = Color.White, fontSize = 14.sp)
+                Text("EXPERIENCE UI", color = Color.White.copy(alpha = .78f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
 
             AppPanel(title = null, names = quickNames, findApp = ::findApp, onLaunch = onLaunchApp, packageManager = packageManager)
@@ -132,7 +132,7 @@ private fun ExperienceHome(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                Text("⌕", color = Color(0xFF4285F4), fontSize = 25.sp)
+                if (search.isNotEmpty()) {\n                    IconButton(onClick = { search = "" }) { Text("×", color = Color(0xFF4285F4), fontSize = 25.sp) }\n                } else {\n                    Text("⌕", color = Color(0xFF4285F4), fontSize = 25.sp)\n                }
             }
 
             Row(
@@ -144,7 +144,7 @@ private fun ExperienceHome(
                 Column(Modifier.weight(1f)) {
                     Text(SimpleDateFormat("h:mm", Locale.getDefault()).format(Date()),
                         fontSize = 46.sp, fontWeight = FontWeight.Light, color = Color.White)
-                    Text(SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(Date()),
+                    Text(SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(Date(now)),
                         fontSize = 17.sp, color = Color.White.copy(alpha = .9f))
                 }
                 Box(Modifier.width(1.dp).height(88.dp).background(Color.White.copy(alpha = .35f)))
