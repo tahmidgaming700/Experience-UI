@@ -98,6 +98,8 @@ jobs:
           .venv/bin/pip install --disable-pip-version-check Pillow
           .venv/bin/python bootanimation/generate_bootanimation.py
           test -s bootanimation/bootanimation.zip
+          unzip -t bootanimation/bootanimation.zip
+          python3 -c 'import zipfile; z=zipfile.ZipFile("bootanimation/bootanimation.zip"); assert z.read("desc.txt").decode().splitlines()[0].split() == ["1080", "1920", "30"]; assert len([n for n in z.namelist() if n.startswith("part0/") and n.endswith(".png")]) == 48; print("Full-HD boot animation validated")'
           mkdir -p dist/bootanimation
           cp bootanimation/bootanimation.zip dist/bootanimation/
           if [ -s bootanimation/experience-boot-preview.gif ]; then

@@ -2,7 +2,7 @@
 """Generate Experience UI's original hybrid-glass ribbon boot animation.
 
 Visual direction: One UI 8.5-inspired polish, Liquid Glass-like layers,
-and flowing glass ribbons. No proprietary vendor assets are used.
+and flowing glass ribbons. An original luminous-ring and flowing-glass-ribbon motif; no proprietary vendor assets are used.
 """
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -11,7 +11,7 @@ import math, zipfile, io
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "bootanimation.zip"
 PREVIEW = ROOT / "experience-boot-preview.gif"
-W, H, FPS, FRAME_COUNT = 720, 1280, 30, 48
+W, H, FPS, FRAME_COUNT = 1080, 1920, 30, 48
 NAVY = (5, 10, 24)
 WHITE = (244, 250, 255)
 MUTED = (166, 199, 230)

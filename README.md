@@ -69,7 +69,7 @@ python3 -m pip install Pillow
 python3 bootanimation/generate_bootanimation.py
 ```
 
-The generator creates `bootanimation/bootanimation.zip` and `bootanimation/experience-boot-preview.gif`. The animation is designed for a 2560×1600 target such as the Tab S 10.5; review it on-device before integrating into a ROM.
+The generator creates `bootanimation/bootanimation.zip` and `bootanimation/experience-boot-preview.gif`. The animation is generated at 1080×1920 and scales to the target display; review it on-device before integrating into a ROM. The archive is validated for descriptor, frame count and ZIP integrity.
 
 ## Integrating apps into LineageOS
 
