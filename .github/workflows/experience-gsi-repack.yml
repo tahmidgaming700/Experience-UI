@@ -146,14 +146,32 @@ jobs:
           resize2fs system.raw.img
           e2fsck -fn system.raw.img
 
-      - name: Integrate Experience UI APKs and boot animation
+      - name: Integrate Experience UI APKs and boot animation (offline filesystem editing)
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p mountpoint
-          sudo mount -o loop,rw system.raw.img mountpoint
-          cleanup() { sudo umount mountpoint 2>/dev/null || true; }
-          trap cleanup EXIT
+
+          # Do not use a kernel loop mount here. The previous run repeatedly
+          # failed at mount -o loop,rw with exit 32 despite e2fsck succeeding.
+          # debugfs edits the ext filesystem offline, avoiding that mount path.
+          debugfs -R 'stats' system.raw.img > dist/metadata/filesystem-before.txt
+          debugfs -R 'ls -l /system/app' system.raw.img
+
+          ensure_dir() {
+            local path="$1"
+            if ! debugfs -R "stat $path" system.raw.img >/dev/null 2>&1; then
+              debugfs -w -R "mkdir $path" system.raw.img
+            fi
+            debugfs -w -R "set_inode_field $path mode 040755" system.raw.img
+            debugfs -w -R "set_inode_field $path uid 0" system.raw.img
+            debugfs -w -R "set_inode_field $path gid 0" system.raw.img
+            debugfs -w -R "ea_set $path security.selinux u:object_r:system_file:s0" system.raw.img
+          }
+
+          ensure_dir /system/app
+          ensure_dir /system/media
+          ensure_dir /system/etc
+          ensure_dir /system/etc/experience-ui
 
           for apk in dist/apks/Experience-*.apk; do
             module="$(basename "$apk" .apk | sed 's/^Experience-//')"
@@ -174,14 +192,24 @@ jobs:
               converter) appdir="ExperienceConverter" ;;
               *) echo "::error::Unexpected APK module: $module"; exit 1 ;;
             esac
-            sudo install -d -m 0755 "mountpoint/system/app/$appdir"
-            sudo install -m 0644 "$apk" "mountpoint/system/app/$appdir/$appdir.apk"
+
+            target="/system/app/$appdir"
+            ensure_dir "$target"
+            debugfs -w -R "write $apk $target/$appdir.apk" system.raw.img
+            debugfs -w -R "set_inode_field $target/$appdir.apk mode 0100644" system.raw.img
+            debugfs -w -R "set_inode_field $target/$appdir.apk uid 0" system.raw.img
+            debugfs -w -R "set_inode_field $target/$appdir.apk gid 0" system.raw.img
+            debugfs -w -R "ea_set $target/$appdir.apk security.selinux u:object_r:system_file:s0" system.raw.img
+            debugfs -R "stat $target/$appdir.apk" system.raw.img
           done
 
-          sudo install -d -m 0755 mountpoint/system/media
-          sudo install -m 0644 dist/bootanimation/bootanimation.zip mountpoint/system/media/bootanimation.zip
-          sudo install -d -m 0755 mountpoint/etc/experience-ui
-          sudo tee mountpoint/etc/experience-ui/BUILD_INFO.txt >/dev/null <<EOF
+          debugfs -w -R 'write dist/bootanimation/bootanimation.zip /system/media/bootanimation.zip' system.raw.img
+          debugfs -w -R 'set_inode_field /system/media/bootanimation.zip mode 0100644' system.raw.img
+          debugfs -w -R 'set_inode_field /system/media/bootanimation.zip uid 0' system.raw.img
+          debugfs -w -R 'set_inode_field /system/media/bootanimation.zip gid 0' system.raw.img
+          debugfs -w -R 'ea_set /system/media/bootanimation.zip security.selinux u:object_r:system_file:s0' system.raw.img
+
+          cat > dist/metadata/BUILD-INFO.txt <<EOF
           Experience UI experimental GSI repack
           Base: Andy Yan LineageOS 19.1 Android 12 GApps GSI
           Base file: $BASE_FILE
@@ -191,9 +219,14 @@ jobs:
           Target: Huawei Y9 2019 JKM-LX2 compatibility is unconfirmed
           This is not a complete device-specific ROM. Do not flash without independent compatibility verification.
           EOF
-          sudo sync
-          sudo umount mountpoint
-          trap - EXIT
+          debugfs -w -R 'write dist/metadata/BUILD-INFO.txt /system/etc/experience-ui/BUILD_INFO.txt' system.raw.img
+          debugfs -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt mode 0100644' system.raw.img
+          debugfs -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt uid 0' system.raw.img
+          debugfs -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt gid 0' system.raw.img
+          debugfs -w -R 'ea_set /system/etc/experience-ui/BUILD_INFO.txt security.selinux u:object_r:system_file:s0' system.raw.img
+
+          debugfs -R 'ls -l /system/media' system.raw.img
+          debugfs -R 'ls -l /system/etc/experience-ui' system.raw.img
 
       - name: Validate and package experimental image
         shell: bash
