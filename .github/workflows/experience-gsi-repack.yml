@@ -173,7 +173,7 @@ jobs:
           ensure_dir() {
             local path="$1"
             local stat_output
-            stat_output="$(df -R "stat $path" system.raw.img 2>&1 || true)"
+            stat_output="$(df -R "stat $path" 2>&1 || true)"
             if ! grep -q 'Inode:' <<<"$stat_output"; then
               df -w -R "mkdir $path"
             fi
@@ -210,19 +210,19 @@ jobs:
 
             target="/system/app/$appdir"
             ensure_dir "$target"
-            df -w -R "write $apk $target/$appdir.apk" system.raw.img
-            df -w -R "set_inode_field $target/$appdir.apk mode 0100644" system.raw.img
-            df -w -R "set_inode_field $target/$appdir.apk uid 0" system.raw.img
-            df -w -R "set_inode_field $target/$appdir.apk gid 0" system.raw.img
-            df -w -R "ea_set $target/$appdir.apk security.selinux u:object_r:system_file:s0" system.raw.img
-            df -R "stat $target/$appdir.apk" system.raw.img
+            df -w -R "write $apk $target/$appdir.apk"
+            df -w -R "set_inode_field $target/$appdir.apk mode 0100644"
+            df -w -R "set_inode_field $target/$appdir.apk uid 0"
+            df -w -R "set_inode_field $target/$appdir.apk gid 0"
+            df -w -R "ea_set $target/$appdir.apk security.selinux u:object_r:system_file:s0"
+            df -R "stat $target/$appdir.apk"
           done
 
-          df -w -R 'write dist/bootanimation/bootanimation.zip /system/media/bootanimation.zip' system.raw.img
-          df -w -R 'set_inode_field /system/media/bootanimation.zip mode 0100644' system.raw.img
-          df -w -R 'set_inode_field /system/media/bootanimation.zip uid 0' system.raw.img
-          df -w -R 'set_inode_field /system/media/bootanimation.zip gid 0' system.raw.img
-          df -w -R 'ea_set /system/media/bootanimation.zip security.selinux u:object_r:system_file:s0' system.raw.img
+          df -w -R 'write dist/bootanimation/bootanimation.zip /system/media/bootanimation.zip'
+          df -w -R 'set_inode_field /system/media/bootanimation.zip mode 0100644'
+          df -w -R 'set_inode_field /system/media/bootanimation.zip uid 0'
+          df -w -R 'set_inode_field /system/media/bootanimation.zip gid 0'
+          df -w -R 'ea_set /system/media/bootanimation.zip security.selinux u:object_r:system_file:s0'
 
           cat > dist/metadata/BUILD-INFO.txt <<EOF
           Experience UI experimental GSI repack
@@ -234,14 +234,14 @@ jobs:
           Target: Huawei Y9 2019 JKM-LX2 compatibility is unconfirmed
           This is not a complete device-specific ROM. Do not flash without independent compatibility verification.
           EOF
-          df -w -R 'write dist/metadata/BUILD-INFO.txt /system/etc/experience-ui/BUILD_INFO.txt' system.raw.img
-          df -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt mode 0100644' system.raw.img
-          df -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt uid 0' system.raw.img
-          df -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt gid 0' system.raw.img
-          df -w -R 'ea_set /system/etc/experience-ui/BUILD_INFO.txt security.selinux u:object_r:system_file:s0' system.raw.img
+          df -w -R 'write dist/metadata/BUILD-INFO.txt /system/etc/experience-ui/BUILD_INFO.txt'
+          df -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt mode 0100644'
+          df -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt uid 0'
+          df -w -R 'set_inode_field /system/etc/experience-ui/BUILD_INFO.txt gid 0'
+          df -w -R 'ea_set /system/etc/experience-ui/BUILD_INFO.txt security.selinux u:object_r:system_file:s0'
 
-          df -R 'ls -l /system/media' system.raw.img
-          df -R 'ls -l /system/etc/experience-ui' system.raw.img
+          df -R 'ls -l /system/media'
+          df -R 'ls -l /system/etc/experience-ui'
 
       - name: Validate and package experimental image
         shell: bash
