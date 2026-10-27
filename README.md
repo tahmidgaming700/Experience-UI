@@ -9,25 +9,31 @@
 | Launcher | Blue glass-panel home screen, real installed-app icons, app shortcuts, search/filter, date/time card and launchable app grid; live weather remains follow-up work |
 | Setup Wizard | Nine-step first-run flow: introduction, language, region, Wi-Fi, data migration choice, Experience Account, Google services, appearance and finish; account/migration screens are honest hand-offs/placeholders until integrated into a ROM |
 | Phone / Dialer | Number pad and safe hand-off to the system dialler |
-| Messages | Conversation UI foundation; SMS provider/default-SMS role integration remains future work |
+| Messages | Phone-number/message composer that hands a draft to the installed SMS app; inbox/default-SMS integration remains future work |
 | Contacts | Opens the device's contacts provider |
 | Notes | Simple note saved locally on the device |
 | Clock | Shows current time and opens system alarms/timer |
 | Calendar | Opens calendar and hands off event creation to a calendar provider |
-| Calculator | Basic two-number arithmetic |
+| Calculator | Local expression calculator with brackets, decimals, operator precedence, unary signs and percentages |
 | Settings | Shortcuts to Android network, display, security, apps and device information settings |
 | Files | Android document picker |
 | Gallery | Android photo/video picker |
 | Camera | Opens the installed camera app |
 | OS Converter | Device-specific ROM planning checklist; it does not flash firmware |
 
-Shared UI lives in `:core-ui`. These are **early app foundations**, not yet a complete replacement for every Google/Samsung system application. Features requiring privileged system APIs, a complete dialler/SMS role implementation, camera hardware integration, calendar/contact databases, media indexing, sync, or extensive device testing are clearly marked as follow-up work.
+Shared UI lives in `:core-ui`. These are **early app foundations**, not yet a complete replacement for every Google/Samsung system application. The app-overhaul branch is replacing decorative placeholders with working, clearly scoped flows; features requiring privileged Android roles remain explicitly labelled. Features requiring privileged system APIs, a complete dialler/SMS role implementation, camera hardware integration, calendar/contact databases, media indexing, sync, or extensive device testing are clearly marked as follow-up work.
 
 ## Experience Launcher preview
 
 The launcher home screen now uses a deep-blue gradient wallpaper, translucent rounded app panels (Quick Apps, My Apps, Quick Tools), a searchable app area, and a date/time card. It discovers launchable apps installed on the device and launches them where Android permits. The weather area is an honest placeholder until a weather provider is integrated; it does not claim to show live conditions. This is an installable launcher app, not a privileged replacement for the entire Android system UI.
 
-## Boot animation and setup flow\n\nThe boot animation generator now follows the eight-stage storyboard supplied for Experience UI: abstract mark stages, a Harmony wordmark stage, the Experience UI wordmark, and a final “powered by Android” frame. It creates a 1080×1920 animation plus a small GIF preview. Review the generated artifact before integrating it into a ROM.\n\nThe Setup Wizard now has a nine-step first-run flow and stores selected preferences locally. Wi-Fi and Google account steps hand off to Android settings. Data migration and Experience Account are not yet system-integrated services, and Google Apps are not installed by selecting the Google option.\n\n## GSI edition
+## Boot animation and setup flow\n\nThe boot animation generator now follows the eight-stage storyboard supplied for Experience UI: abstract mark stages, a Harmony wordmark stage, the Experience UI wordmark, and a final “powered by Android” frame. It creates a 1080×1920 animation plus a small GIF preview. Review the generated artifact before integrating it into a ROM.\n\nThe Setup Wizard now has a nine-step first-run flow and stores selected preferences locally. Wi-Fi and Google account steps hand off to Android settings. Data migration and Experience Account are not yet system-integrated services, and Google Apps are not installed by selecting the Google option.\n\n## Current app-overhaul work
+
+- Calculator: redesigned keypad and expression display; local parser supports arithmetic precedence, parentheses, unary signs, decimal numbers and percentages. Input is parsed as arithmetic and never executed as code.
+- Messages: real recipient/message draft screen that hands off to the installed SMS app. It does not pretend to have an inbox or send SMS silently.
+- These changes are in `feature/experience-ui-app-overhaul` pending CI validation. Do not call the resulting APK suite a complete OS until launcher/system UI, privileged roles, device integration and boot validation are complete.
+
+## GSI edition
 
 The repository now includes a **LineageOS-derived GSI build plan** under [`gsi/`](gsi/README.md), including [`BUILD_GSI.md`](gsi/BUILD_GSI.md), a target manifest and a GitHub Actions metadata validation workflow.
 
