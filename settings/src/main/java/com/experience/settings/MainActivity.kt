@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
                     ExperienceCard("Apps", "Installed apps and permissions", onClick = {
                         runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) }
                     })
+                    ExperienceCard("Notifications", "App notification settings", onClick = {
+                        runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
+                    })
                     ExperienceCard("About this device", "Android version and build information", onClick = {
                         runCatching { context.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)) }
                     })
