@@ -1,0 +1,16 @@
+name: Repack Experience UI GSI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [rebuild/functional-system-apps]
+    paths:
+      - ".github/workflows/repack-gsi.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  repack:
+    name: Repack and validate the Android 12 ARM64 system image
+    uses: ./.github/workflows/build-gsi.yml
