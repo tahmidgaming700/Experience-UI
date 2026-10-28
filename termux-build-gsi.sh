@@ -11,12 +11,12 @@ BASE_FILE="lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz"
 WORKDIR="${EXPERIENCE_UI_WORKDIR:-$HOME/Experience-UI}"
 BUILD_TOOLS_VERSION="35.0.0"
 
-die() { printf '\\n[ERROR] %s\\n' "$*" >&2; exit 1; }
+die() { printf '\n[ERROR] %s\n' "$*" >&2; exit 1; }
 need_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
 
 [[ -n "${PREFIX:-}" ]] || die "Run this script inside Termux."
-printf '%s\\n' "=== Experience UI Termux GSI builder ==="
-printf '%s\\n' "This script repacks a downloaded system image. It does not flash your device."
+printf '%s\n' "=== Experience UI Termux GSI builder ==="
+printf '%s\n' "This script repacks a downloaded system image. It does not flash your device."
 
 pkg update -y
 pkg install -y git wget gzip file python python-pip openjdk-17 gradle e2fsprogs qemu-utils coreutils findutils grep sed unzip zip
@@ -29,8 +29,8 @@ export PATH="$JAVA_HOME/bin:$PATH"
 for c in java gradle debugfs dumpe2fs e2fsck resize2fs qemu-img; do need_cmd "$c"; done
 
 mkdir -p dist/apks dist/bootanimation dist/metadata dist/image
-printf '\\n[1/7] Building app modules...\\n'
-gradle --no-daemon --stacktrace clean assembleDebug
+printf '\n[1/7] Building app modules...\n'
+gradle --no-daemon --stacktrace assembleDebug
 modules=(launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter ota-updater)
 for module in "${modules[@]}"; do
   apk="$module/build/outputs/apk/debug/$module-debug.apk"
@@ -38,34 +38,35 @@ for module in "${modules[@]}"; do
   cp "$apk" "dist/apks/Experience-$module.apk"
 done
 
-printf '\\n[2/7] Validating APK ZIPs...\\n'
-AAPT="${ANDROID_HOME:-$HOME/Android/Sdk}/build-tools/$BUILD_TOOLS_VERSION/aapt"
-APKSIGNER="${ANDROID_HOME:-$HOME/Android/Sdk}/build-tools/$BUILD_TOOLS_VERSION/apksigner"
+printf '\n[2/7] Validating APK ZIPs...\n'
+SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+AAPT="$SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION/aapt"
+APKSIGNER="$SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION/apksigner"
 if [[ -x "$AAPT" && -x "$APKSIGNER" ]]; then
   for apk in dist/apks/*.apk; do "$AAPT" dump badging "$apk" >/dev/null; "$APKSIGNER" verify --verbose "$apk"; unzip -t "$apk" >/dev/null; done
 else
-  printf '%s\\n' "WARNING: Android SDK aapt/apksigner not found; signature/metadata checks skipped."
+  printf '%s\n' "WARNING: Android SDK aapt/apksigner not found; signature/metadata checks skipped."
   for apk in dist/apks/*.apk; do unzip -t "$apk" >/dev/null; done
 fi
 
-printf '\\n[3/7] Generating boot animation...\\n'
+printf '\n[3/7] Generating boot animation...\n'
 python bootanimation/generate_bootanimation.py
 [[ -s bootanimation/bootanimation.zip ]] || die "Boot animation ZIP was not generated."
 [[ -s bootanimation/experience-boot-preview.gif ]] || die "Boot preview GIF was not generated."
 unzip -t bootanimation/bootanimation.zip
 cp bootanimation/bootanimation.zip bootanimation/experience-boot-preview.gif dist/bootanimation/
 
-printf '\\n[4/7] Downloading Android 12 ARM64 base GSI...\\n'
+printf '\n[4/7] Downloading Android 12 ARM64 base GSI...\n'
 [[ -s base.img.gz ]] || wget --https-only --max-redirect=20 --tries=4 --retry-connrefused --timeout=90 -O base.img.gz "$BASE_URL"
 gzip -t base.img.gz
 gzip -dc base.img.gz > base.img
 [[ -s base.img ]] || die "Base image is empty."
 file base.img | tee dist/metadata/base-image-file.txt
 sha256sum base.img | tee dist/metadata/base-image.sha256
-printf '%s\\n' "$BASE_URL" > dist/metadata/base-image-url.txt
-printf '%s\\n' "$BASE_FILE" > dist/metadata/base-image-filename.txt
+printf '%s\n' "$BASE_URL" > dist/metadata/base-image-url.txt
+printf '%s\n' "$BASE_FILE" > dist/metadata/base-image-filename.txt
 
-printf '\\n[5/7] Preparing filesystem...\\n'
+printf '\n[5/7] Preparing filesystem...\n'
 IMAGE_TYPE="$(file -b base.img)"
 if grep -qi 'Android sparse' <<<"$IMAGE_TYPE"; then
   need_cmd simg2img
@@ -79,7 +80,7 @@ e2fsck -f -y system.raw.img
 resize2fs system.raw.img
 e2fsck -fn system.raw.img
 
-path_type() { debugfs -R "stat $1" system.raw.img 2>&1 | sed -n 's/^[[:space:]]*Type: \\([^ ]*\\).*/\\1/p' | head -n 1; }
+path_type() { debugfs -R "stat $1" system.raw.img 2>&1 | sed -n 's/^[[:space:]]*Type: \([^ ]*\).*/\1/p' | head -n 1; }
 dir_exists() {
   local details
   details="$(debugfs -R "stat $1" system.raw.img 2>&1 || true)"
@@ -100,7 +101,7 @@ for d in app etc; do dir_exists "$SYSTEM_ROOT/$d" || die "Required directory mis
 # Some valid GSIs omit /system/media; create it before adding bootanimation.
 ensure_dir "$SYSTEM_ROOT/media"
 
-printf '\\n[6/7] Integrating APKs and boot animation...\\n'
+printf '\n[6/7] Integrating APKs and boot animation...\n'
 for apk in dist/apks/Experience-*.apk; do
   module="$(basename "$apk" .apk | sed 's/^Experience-//')"
   case "$module" in
@@ -132,7 +133,7 @@ write_image "write dist/metadata/BUILD_INFO.txt $SYSTEM_ROOT/etc/experience-ui/B
 write_image "set_inode_field $SYSTEM_ROOT/etc/experience-ui/BUILD_INFO.txt mode 0100644"
 e2fsck -fn system.raw.img
 
-printf '\\n[7/7] Verifying and packaging...\\n'
+printf '\n[7/7] Verifying and packaging...\n'
 if dir_exists /system/app; then VERIFY_ROOT=/system; else VERIFY_ROOT=; fi
 debugfs -R "ls -l $VERIFY_ROOT/app" system.raw.img | tee dist/metadata/integrated-apps.txt
 for appdir in ExperienceLauncher ExperienceSettings ExperienceSetupWizard ExperienceDialer ExperienceMessages ExperienceContacts ExperienceNotes ExperienceClock ExperienceCalendar ExperienceCalculator ExperienceFiles ExperienceGallery ExperienceCamera ExperienceConverter ExperienceUpdater; do
@@ -154,5 +155,5 @@ ARM64 GSI virtual-machine boot: NOT VERIFIED.
 Huawei Y9 JKM-LX2 hardware boot: NOT TESTED.
 OTA install: not enabled.
 REPORT
-printf '\\nBuild/repack finished. Outputs:\\n%s/dist/image/ExperienceUI-Android12-arm64-experimental.img\\n%s/dist/apks/\\n%s/dist/bootanimation/bootanimation.zip\\n' "$WORKDIR" "$WORKDIR" "$WORKDIR"
-printf '\\nDo not flash unless device compatibility, partition size, and a restore path are independently verified.\\n'
+printf '\nBuild/repack finished. Outputs:\n%s/dist/image/ExperienceUI-Android12-arm64-experimental.img\n%s/dist/apks/\n%s/dist/bootanimation/bootanimation.zip\n' "$WORKDIR" "$WORKDIR" "$WORKDIR"
+printf '\nDo not flash unless device compatibility, partition size, and a restore path are independently verified.\n'
