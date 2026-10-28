@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,174 +22,148 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.Locale
 
-private val Midnight = Color(0xFF07163D)
-private val ElectricBlue = Color(0xFF2D8BFF)
-private val GlassPanel = Color(0x2FE0EEFF)
+private val Navy = Color(0xFF07163D)
+private val Blue = Color(0xFF2D8BFF)
 
-private data class SetupStep(val title: String, val subtitle: String)
+private fun tr(language: String, key: String): String {
+    val bn = mapOf(
+        "welcome" to "Experience UI-তে স্বাগতম", "welcome_sub" to "আপনার জন্য তৈরি একটি সহজ Android অভিজ্ঞতা।",
+        "language" to "ভাষা নির্বাচন করুন", "region" to "অঞ্চল নির্বাচন করুন", "wifi" to "Wi-Fi সংযোগ করুন",
+        "migration" to "আপনার ডেটা আনুন", "account" to "Experience Account", "google" to "Google পরিষেবা",
+        "appearance" to "চেহারা পছন্দ করুন", "ready" to "আপনি প্রস্তুত", "continue" to "চালিয়ে যান",
+        "back" to "পেছনে", "finish" to "সেটআপ শেষ করুন", "open_wifi" to "Wi-Fi সেটিংস খুলুন",
+        "open_google" to "Google অ্যাকাউন্ট যোগ করুন", "skip" to "এখন এড়িয়ে যান",
+        "intro_body" to "চলুন আপনার ডিভাইস সেটআপ করি।", "wifi_body" to "নিরাপদে নেটওয়ার্ক নির্বাচন ও সংযোগ করতে Android-এর Wi-Fi সেটিংস খুলুন।",
+        "google_body" to "Google পরিষেবা ইনস্টল থাকা ROM-এ Android-এর অ্যাকাউন্ট যোগ করার প্রক্রিয়া খুলুন।",
+        "done_body" to "আপনার পছন্দ সংরক্ষিত হবে এবং Experience Launcher খুলবে।",
+        "english" to "English", "bengali" to "বাংলা", "hindi" to "हिन्दी", "japanese" to "日本語",
+        "bangladesh" to "বাংলাদেশ", "india" to "ভারত", "japan" to "জাপান", "uk" to "যুক্তরাজ্য", "us" to "যুক্তরাষ্ট্র",
+        "new" to "নতুন হিসেবে সেটআপ", "transfer" to "অন্য Android থেকে স্থানান্তর", "later" to "পরে সিদ্ধান্ত নেব",
+        "dark" to "ডার্ক", "light" to "লাইট", "system" to "সিস্টেমের ডিফল্ট",
+        "exp_account_body" to "Experience Account সার্ভিস কনফিগার করা না থাকলে এই ধাপটি এড়িয়ে যেতে পারেন।"
+    )
+    val hi = mapOf(
+        "welcome" to "Experience UI में आपका स्वागत है", "welcome_sub" to "आपके लिए एक सरल Android अनुभव।",
+        "language" to "भाषा चुनें", "region" to "क्षेत्र चुनें", "wifi" to "Wi-Fi से कनेक्ट करें",
+        "migration" to "अपना डेटा लाएँ", "account" to "Experience Account", "google" to "Google सेवाएँ",
+        "appearance" to "अपना रूप चुनें", "ready" to "आप तैयार हैं", "continue" to "जारी रखें",
+        "back" to "वापस", "finish" to "सेटअप पूरा करें", "open_wifi" to "Wi-Fi सेटिंग खोलें",
+        "open_google" to "Google खाता जोड़ें", "skip" to "अभी छोड़ें",
+        "intro_body" to "आइए आपका डिवाइस सेटअप करें।", "wifi_body" to "नेटवर्क चुनने और सुरक्षित रूप से कनेक्ट करने के लिए Android की Wi-Fi सेटिंग खोलें।",
+        "google_body" to "Google सेवाएँ इंस्टॉल होने पर Android का खाता जोड़ने वाला फ़्लो खोलें।",
+        "done_body" to "आपकी पसंद सहेजी जाएगी और Experience Launcher खुलेगा।",
+        "english" to "English", "bengali" to "বাংলা", "hindi" to "हिन्दी", "japanese" to "日本語",
+        "bangladesh" to "बांग्लादेश", "india" to "भारत", "japan" to "जापान", "uk" to "यूनाइटेड किंगडम", "us" to "संयुक्त राज्य",
+        "new" to "नए डिवाइस की तरह सेटअप", "transfer" to "दूसरे Android से ट्रांसफ़र", "later" to "बाद में तय करें",
+        "dark" to "डार्क", "light" to "लाइट", "system" to "सिस्टम डिफ़ॉल्ट",
+        "exp_account_body" to "Experience Account सेवा कॉन्फ़िगर न हो तो यह चरण छोड़ सकते हैं।"
+    )
+    return when (language) { "বাংলা" -> bn[key] ?: key; "हिन्दी" -> hi[key] ?: key; else -> key }
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val prefs = getSharedPreferences("experience_setup", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("completed", false)) {
+            openLauncher()
+            return
+        }
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(
-                primary = Color(0xFF9EC9FF),
-                background = Midnight,
-                surface = Color(0xFF122C5C),
-                onBackground = Color.White,
-                onSurface = Color.White
-            )) {
-                SetupWizard(
+            MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFF9EC9FF), background = Navy, surface = Color(0xFF122C5C))) {
+                WizardScreen(
                     context = this,
-                    onOpen = { intent -> runCatching { startActivity(intent) } }
+                    onFinish = { language, region, migration, account, google, appearance ->
+                        prefs.edit().putString("language", language).putString("region", region)
+                            .putString("migration", migration).putString("account", account)
+                            .putString("google", google).putString("appearance", appearance)
+                            .putBoolean("completed", true).apply()
+                        openLauncher()
+                    }
                 )
             }
         }
     }
+
+    private fun openLauncher() {
+        val intent = packageManager.getLaunchIntentForPackage("com.experience.launcher")
+            ?: Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        startActivity(intent)
+        finish()
+    }
 }
 
 @Composable
-private fun SetupWizard(context: Context, onOpen: (Intent) -> Unit) {
+private fun WizardScreen(
+    context: Context,
+    onFinish: (String, String, String, String, String, String) -> Unit
+) {
     val prefs = remember { context.getSharedPreferences("experience_setup", Context.MODE_PRIVATE) }
     var step by rememberSaveable { mutableIntStateOf(0) }
     var language by rememberSaveable { mutableStateOf(prefs.getString("language", "English") ?: "English") }
     var region by rememberSaveable { mutableStateOf(prefs.getString("region", "Bangladesh") ?: "Bangladesh") }
     var migration by rememberSaveable { mutableStateOf(prefs.getString("migration", "Set up as new") ?: "Set up as new") }
-    var accountChoice by rememberSaveable { mutableStateOf(prefs.getString("account", "Skip for now") ?: "Skip for now") }
-    var googleChoice by rememberSaveable { mutableStateOf(prefs.getString("google", "Set up later") ?: "Set up later") }
+    var account by rememberSaveable { mutableStateOf(prefs.getString("account", "Skip for now") ?: "Skip for now") }
+    var google by rememberSaveable { mutableStateOf(prefs.getString("google", "Set up later") ?: "Set up later") }
     var appearance by rememberSaveable { mutableStateOf(prefs.getString("appearance", "Dark") ?: "Dark") }
-    var finished by rememberSaveable { mutableStateOf(prefs.getBoolean("completed", false)) }
-
-    val steps = listOf(
-        SetupStep("Welcome to Experience UI", "A calmer, more personal Android experience."),
-        SetupStep("Choose your language", "You can change this later in Settings."),
-        SetupStep("Select your region", "Set regional defaults for your experience."),
-        SetupStep("Connect to Wi-Fi", "A connection helps with updates, accounts and restoring data."),
-        SetupStep("Bring your data", "Choose whether to migrate data or start fresh."),
-        SetupStep("Experience Account", "Use an Experience account when account services are available, or continue without one."),
-        SetupStep("Google services", "Add a Google account for Play Store, backup and Google services if you want them."),
-        SetupStep("Make it yours", "Choose the look you want for Experience UI."),
-        SetupStep("You're ready", "Your choices are saved locally. Finish Android's protected setup separately if needed.")
-    )
-
-    Box(Modifier.fillMaxSize().background(
-        Brush.linearGradient(listOf(Midnight, Color(0xFF0B3678), Color(0xFF111E58), Color(0xFF27286B)))
-    )) {
-        Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
-                .verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).background(
-                    Brush.linearGradient(listOf(ElectricBlue, Color(0xFF9B8CFF))),
-                    RoundedCornerShape(14.dp)
-                ), contentAlignment = Alignment.Center) {
-                    Text("E", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("EXPERIENCE UI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text("Setup experience", fontSize = 12.sp, color = Color.White.copy(alpha = .72f))
-                }
-            }
-
-            LinearProgressIndicator(
-                progress = { (step + 1f) / steps.size },
-                modifier = Modifier.fillMaxWidth().height(4.dp),
-                color = Color(0xFF9FC9FF),
-                trackColor = Color.White.copy(alpha = .18f)
-            )
-
-            Column(
-                Modifier.fillMaxWidth().background(GlassPanel, RoundedCornerShape(30.dp)).padding(22.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text("STEP %02d".format(step + 1), color = Color(0xFF9FC9FF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(steps[step].title, fontSize = 29.sp, lineHeight = 35.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                Text(steps[step].subtitle, fontSize = 15.sp, color = Color.White.copy(alpha = .8f))
-
+    val keys = listOf("welcome", "language", "region", "wifi", "migration", "account", "google", "appearance", "ready")
+    val enTitles = mapOf("welcome" to "Welcome to Experience UI", "language" to "Choose your language", "region" to "Choose your region", "wifi" to "Connect to Wi-Fi", "migration" to "Bring your data", "account" to "Experience Account", "google" to "Google services", "appearance" to "Make it yours", "ready" to "You're ready")
+    fun title(key: String) = if (language == "English") enTitles[key] ?: key else tr(language, key)
+    val bg = Brush.linearGradient(listOf(Navy, Color(0xFF0B3678), Color(0xFF27286B)))
+    Box(Modifier.fillMaxSize().background(bg)) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Text("EXPERIENCE UI", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            LinearProgressIndicator(progress = { (step + 1f) / keys.size }, modifier = Modifier.fillMaxWidth(), color = Blue)
+            Column(Modifier.fillMaxWidth().background(Color(0x332D8BFF), RoundedCornerShape(28.dp)).padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("STEP ${step + 1} / ${keys.size}", color = Color(0xFF9EC9FF), fontWeight = FontWeight.Bold)
+                Text(title(keys[step]), color = Color.White, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold)
                 when (step) {
-                    0 -> {
-                        Text("Designed around you.", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Medium)
-                        Text("A fresh home screen, useful system apps and thoughtful details — built on Android and designed as one experience.", color = Color.White.copy(alpha = .8f))
-                    }
-                    1 -> ChoiceList(language, listOf("English", "বাংলা", "日本語", "العربية")) { language = it }
-                    2 -> ChoiceList(region, listOf("Bangladesh", "India", "United Kingdom", "United States", "Japan", "Other")) { region = it }
+                    0 -> Text(if (language == "English") "Let's set up your device. Choose your preferences and continue through each step." else tr(language, "intro_body"), color = Color.White)
+                    1 -> Choice(language, listOf("English", "বাংলা", "हिन्दी", "日本語"), { language = it }, ::title)
+                    2 -> Choice(region, listOf("Bangladesh", "India", "Japan", "United Kingdom", "United States"), { region = it }, { v -> when(v) { "Bangladesh" -> tr(language,"bangladesh"); "India" -> tr(language,"india"); "Japan" -> tr(language,"japan"); "United Kingdom" -> tr(language,"uk"); "United States" -> tr(language,"us"); else -> v } })
                     3 -> {
-                        Text("Wi-Fi passwords are entered only in Android's own network screen. This wizard never asks you to type one here.", color = Color.White.copy(alpha = .82f))
-                        Button(onClick = { onOpen(Intent(Settings.ACTION_WIFI_SETTINGS)) }, modifier = Modifier.fillMaxWidth()) { Text("Open Wi-Fi settings") }
+                        Text(if (language == "English") "Choose a network and enter its password in Android's own Wi-Fi screen. Return here to continue." else tr(language, "wifi_body"), color = Color.White)
+                        Button(onClick = { launchSafely(context, Intent(Settings.ACTION_WIFI_SETTINGS)) }, modifier = Modifier.fillMaxWidth()) { Text(tr(language, "open_wifi")) }
                     }
-                    4 -> ChoiceList(migration, listOf("Transfer from another Android", "Restore from backup", "Set up as new", "Decide later")) { migration = it }
+                    4 -> Choice(migration, listOf("Set up as new", "Transfer from another Android", "Decide later"), { migration = it }, { v -> when(v) { "Set up as new" -> tr(language,"new"); "Transfer from another Android" -> tr(language,"transfer"); else -> tr(language,"later") } })
                     5 -> {
-                        ChoiceList(accountChoice, listOf("Sign in when available", "Create an account later", "Skip for now")) { accountChoice = it }
-                        Text("Account sign-in is not implemented by this screen yet. No credentials are collected or stored.", color = Color.White.copy(alpha = .72f), fontSize = 12.sp)
+                        Text(if (language == "English") "No Experience Account server is configured in this build. You can skip this step; no password is collected." else tr(language,"exp_account_body"), color = Color.White)
+                        Choice(account, listOf("Sign in when available", "Create an account later", "Skip for now"), { account = it }, { it })
                     }
                     6 -> {
-                        ChoiceList(googleChoice, listOf("Add Google account", "Set up later", "Skip Google services")) { googleChoice = it }
-                        if (googleChoice == "Add Google account") {
-                            Button(onClick = { onOpen(Intent(Settings.ACTION_ADD_ACCOUNT).putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))) }, modifier = Modifier.fillMaxWidth()) {
-                                Text("Open Android account settings")
-                            }
-                        }
-                        Text("Google apps and sign-in require a compatible GApps package and supported ROM build. This choice does not install them.", color = Color.White.copy(alpha = .72f), fontSize = 12.sp)
+                        Text(if (language == "English") "This opens Android's account flow. Google sign-in requires compatible Google services to be installed in the ROM." else tr(language,"google_body"), color = Color.White)
+                        Button(onClick = { launchSafely(context, Intent(Settings.ACTION_ADD_ACCOUNT).putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))) }, modifier = Modifier.fillMaxWidth()) { Text(tr(language,"open_google")) }
+                        Choice(google, listOf("Add Google account", "Set up later", "Skip Google services"), { google = it }, { it })
                     }
-                    7 -> ChoiceList(appearance, listOf("Dark", "Light", "System default")) { appearance = it }
-                    else -> {
-                        Text("Language: $language\nRegion: $region\nData: $migration\nExperience Account: $accountChoice\nGoogle: $googleChoice\nAppearance: $appearance",
-                            color = Color.White.copy(alpha = .9f), lineHeight = 24.sp)
-                        Text("This app saves your setup choices; system-level provisioning, migration and account flows need privileged ROM integration.", color = Color.White.copy(alpha = .72f), fontSize = 12.sp)
-                    }
+                    7 -> Choice(appearance, listOf("Dark", "Light", "System default"), { appearance = it }, { v -> when(v) { "Dark" -> tr(language,"dark"); "Light" -> tr(language,"light"); else -> tr(language,"system") } })
+                    else -> Text(if (language == "English") "Your choices will be saved and Experience Launcher will open. System-wide language and protected setup steps require ROM integration." else tr(language,"done_body"), color = Color.White)
                 }
             }
-
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = { if (step > 0) step-- },
-                    enabled = step > 0,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                ) { Text("Back") }
-                Button(
-                    onClick = {
-                        if (step < steps.lastIndex) {
-                            step++
-                        } else {
-                            prefs.edit()
-                                .putString("language", language)
-                                .putString("region", region)
-                                .putString("migration", migration)
-                                .putString("account", accountChoice)
-                                .putString("google", googleChoice)
-                                .putString("appearance", appearance)
-                                .putBoolean("completed", true)
-                                .apply()
-                            finished = true
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                ) { Text(if (step == steps.lastIndex) "Finish setup" else "Continue") }
+                OutlinedButton(onClick = { if (step > 0) step-- }, enabled = step > 0, modifier = Modifier.weight(1f)) { Text(tr(language,"back")) }
+                Button(onClick = { if (step < keys.lastIndex) step++ else onFinish(language, region, migration, account, google, appearance) }, modifier = Modifier.weight(1f)) {
+                    Text(if (step == keys.lastIndex) tr(language,"finish") else tr(language,"continue"))
+                }
             }
-            if (finished) Text("Setup preferences saved on this device.", color = Color(0xFFB8FFD6))
         }
     }
 }
 
+private fun launchSafely(context: Context, intent: Intent) {
+    try { context.startActivity(intent) } catch (_: Exception) {
+        try { context.startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) { }
+    }
+}
+
 @Composable
-private fun ChoiceList(selected: String, choices: List<String>, onSelect: (String) -> Unit) {
+private fun Choice(selected: String, choices: List<String>, onSelect: (String) -> Unit, label: (String) -> String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        choices.forEach { choice ->
-            Row(
-                Modifier.fillMaxWidth().background(
-                    if (selected == choice) Color(0x332F8BFF) else Color.Transparent,
-                    RoundedCornerShape(16.dp)
-                ).padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(selected = selected == choice, onClick = { onSelect(choice) })
-                Text(choice, color = Color.White, modifier = Modifier.padding(start = 6.dp))
+        choices.forEach { value ->
+            Row(Modifier.fillMaxWidth().clickable { onSelect(value) }.background(if (selected == value) Color(0x443A91FF) else Color.Transparent, RoundedCornerShape(16.dp)).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected == value, onClick = { onSelect(value) })
+                Text(label(value), color = Color.White, modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
