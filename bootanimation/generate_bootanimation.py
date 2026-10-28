@@ -115,7 +115,7 @@ def main():
                     duration=1000//FPS, loop=0, optimize=True)
     with zipfile.ZipFile(OUT) as zf:
         assert zf.testzip() is None
-        assert zf.read("desc.txt").decode().splitlines()[0].split() == ["720", "1280", "30"]
+        assert zf.read("desc.txt").decode().splitlines()[0].split() == [str(W), str(H), str(FPS)]
         assert len([n for n in zf.namelist() if n.startswith("part0/") and n.endswith(".png")]) == FRAME_COUNT
     print(f"Generated {OUT} ({OUT.stat().st_size} bytes)")
     print(f"Generated {PREVIEW} ({PREVIEW.stat().st_size} bytes)")
