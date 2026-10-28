@@ -2,6 +2,7 @@ name: Build Experience UI GSI (GitHub Ubuntu)
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [main, master, rebuild/functional-system-apps]
     paths:
@@ -63,24 +64,16 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Configure Android SDK
+      - name: Install Android SDK and Build Tools
+        uses: android-actions/setup-android@v3
+
+      - name: Install required Android SDK packages
         shell: bash
         run: |
           set -Eeuo pipefail
-          SDKMANAGER="$(find /usr/local/lib/android /opt -type f -path '*/cmdline-tools/*/bin/sdkmanager' -print -quit 2>/dev/null || true)"
-          if [[ -z "$SDKMANAGER" ]]; then
-            echo "::error::sdkmanager not found on runner"
-            exit 1
-          fi
-          SDK_BIN="$(dirname "$SDKMANAGER")"
-          SDK_ROOT="${SDK_BIN%%/cmdline-tools/*}"
-          [[ -d "$SDK_ROOT" ]] || { echo "::error::Cannot determine SDK root"; exit 1; }
-          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "$SDK_BIN" >> "$GITHUB_PATH"
-          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
-          yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
       - name: Restore previously generated boot animation
         uses: actions/cache@v4
