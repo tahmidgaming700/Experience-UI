@@ -73,7 +73,7 @@ private fun SettingsHome(
             Text("Device", style = MaterialTheme.typography.titleLarge)
             SettingItem("Display", "Brightness, screen timeout and display options") { open(Settings.ACTION_DISPLAY_SETTINGS) }
             SettingItem("Sound", "Ringtones, volume and vibration") { open(Settings.ACTION_SOUND_SETTINGS) }
-            SettingItem("Notifications", "App notifications and notification access") { open(Settings.ACTION_NOTIFICATION_SETTINGS) }
+            SettingItem("Notifications", "App notifications and notification access") { open(Settings.ACTION_SETTINGS) }
             SettingItem("Apps", "Installed apps, defaults and permissions") { open(Settings.ACTION_APPLICATION_SETTINGS) }
             SettingItem("Security & privacy", "Screen lock and supported security controls") { open(Settings.ACTION_SECURITY_SETTINGS) }
             SettingItem("Accounts", "Manage accounts configured on Android") { open(Settings.ACTION_SYNC_SETTINGS) }
