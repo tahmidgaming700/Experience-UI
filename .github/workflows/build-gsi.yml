@@ -64,18 +64,24 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Install Android SDK command-line tools
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: "16.0"
-
-      - name: Install required Android SDK packages
+      - name: Configure preinstalled Android SDK
         shell: bash
         run: |
           set -Eeuo pipefail
-          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
-          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          SDK_ROOT="/usr/local/lib/android/sdk"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          fi
+          [[ -x "$SDKMANAGER" ]] || { echo "::error::Android sdkmanager not found"; exit 1; }
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          test -x "$SDK_ROOT/build-tools/35.0.0/aapt"
+          test -x "$SDK_ROOT/build-tools/35.0.0/apksigner"
 
       - name: Restore previously generated boot animation
         uses: actions/cache@v4
