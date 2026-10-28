@@ -3,7 +3,7 @@ name: Build Experience UI GSI (GitHub Ubuntu)
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches: [main, master, rebuild/functional-system-apps]
     paths:
       - ".github/workflows/build-gsi.yml"
       - "gsi/**"
