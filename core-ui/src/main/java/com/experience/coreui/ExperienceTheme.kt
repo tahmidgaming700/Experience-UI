@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -152,18 +153,21 @@ fun ExperienceCard(title: String, description: String? = null, onClick: (() -> U
         }
     }
     if (onClick != null) {
+        val focusState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
         Card(
             onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().onFocusChanged { focusState.value = it.isFocused },
             shape = shape,
             colors = CardDefaults.cardColors(
-                containerColor = if (dark) Color(0xCC17263A) else Color(0xDDFBFDFF)
+                containerColor = if (focusState.value) MaterialTheme.colorScheme.primaryContainer
+                    else if (dark) Color(0xCC17263A) else Color(0xDDFBFDFF)
             ),
             border = BorderStroke(
-                1.dp,
-                if (dark) Color(0x557ECFFF) else Color(0x6681A9D2)
+                if (focusState.value) 3.dp else 1.dp,
+                if (focusState.value) MaterialTheme.colorScheme.primary
+                    else if (dark) Color(0x557ECFFF) else Color(0x6681A9D2)
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = if (focusState.value) 4.dp else 0.dp)
         ) {
             Column(Modifier.fillMaxWidth().padding(18.dp), content = content)
         }
