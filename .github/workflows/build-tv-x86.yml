@@ -156,14 +156,17 @@ jobs:
           sudo fsck.erofs --extract=work/system-root "$SYSTEM_IMAGE"
           if [[ -d work/system-root/app ]]; then
             SYSTEM_ROOT=work/system-root
+            EROFS_MOUNT_POINT=/system
           elif [[ -d work/system-root/system/app ]]; then
             SYSTEM_ROOT=work/system-root/system
+            EROFS_MOUNT_POINT=/
           else
             echo "::error::Could not locate the Android system app directory after EROFS extraction"
             find work/system-root -maxdepth 3 -type d | head -100
             exit 1
           fi
           echo "SYSTEM_ROOT=$SYSTEM_ROOT" >> "$GITHUB_ENV"
+          echo "EROFS_MOUNT_POINT=$EROFS_MOUNT_POINT" >> "$GITHUB_ENV"
           sudo mkdir -p "$SYSTEM_ROOT/app" "$SYSTEM_ROOT/media" "$SYSTEM_ROOT/etc/experience-ui"
           declare -A appdirs=(
             [launcher]=ExperienceLauncher
@@ -217,9 +220,9 @@ jobs:
           NEW_IMAGE="$PWD/work/system-experience-ui.efs"
           # Build a fresh EROFS image; never run ext4 debugfs/e2fsck tools on EROFS.
           if [[ -n "${FILE_CONTEXTS:-}" && -f "$FILE_CONTEXTS" ]]; then
-            sudo mkfs.erofs -zlz4hc,9 -T 0 --mount-point=/system --file-contexts="$FILE_CONTEXTS" "$NEW_IMAGE" "$SYSTEM_ROOT"
+            sudo mkfs.erofs -zlz4hc,9 -T 0 --mount-point="$EROFS_MOUNT_POINT" --file-contexts="$FILE_CONTEXTS" "$NEW_IMAGE" work/system-root
           else
-            sudo mkfs.erofs -zlz4hc,9 -T 0 --mount-point=/system "$NEW_IMAGE" "$SYSTEM_ROOT"
+            sudo mkfs.erofs -zlz4hc,9 -T 0 --mount-point="$EROFS_MOUNT_POINT" "$NEW_IMAGE" work/system-root
           fi
           test -s "$NEW_IMAGE"
           file "$NEW_IMAGE" | tee dist/metadata/rebuilt-system-image-file.txt
