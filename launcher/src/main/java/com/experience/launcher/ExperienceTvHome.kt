@@ -50,9 +50,24 @@ fun ExperienceTvHome(
 ) {
     val apps = remember(packageManager) {
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val phoneOnlyPackages = setOf(
+            "com.android.dialer", "com.google.android.dialer",
+            "com.android.contacts", "com.google.android.contacts",
+            "com.android.messaging", "com.google.android.apps.messaging",
+            "com.android.camera2", "com.google.android.GoogleCamera",
+            "com.experience.dialer", "com.experience.contacts",
+            "com.experience.messages", "com.experience.camera"
+        )
+        val phoneOnlyLabels = setOf("phone", "dialer", "contacts", "messages", "messaging", "camera")
         packageManager.queryIntentActivities(launcher, 0)
             .distinctBy { it.activityInfo.packageName }
-            .filter { it.activityInfo.packageName != "com.experience.launcher" }
+            .filterNot { app ->
+                val packageName = app.activityInfo.packageName
+                val label = app.loadLabel(packageManager).toString().trim().lowercase(Locale.getDefault())
+                packageName == "com.experience.launcher" ||
+                    packageName in phoneOnlyPackages ||
+                    label in phoneOnlyLabels
+            }
             .sortedBy { it.loadLabel(packageManager).toString().lowercase(Locale.getDefault()) }
     }
     val featured = apps.filter {
