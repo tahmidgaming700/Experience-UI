@@ -110,19 +110,29 @@ fun ExperienceScaffold(
             }
         }
     ) { padding ->
-        Column(
-            Modifier.fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        if (dark) listOf(Color(0xFF080F1B), Color(0xFF101D31), Color(0xFF17162C))
-                        else listOf(Color(0xFFF1F5FA), Color(0xFFE8F2FC), Color(0xFFF5F0FF))
-                    )
+        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+            val tvLayout = maxWidth >= 840.dp
+            Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
+                Column(
+                    Modifier
+                        .widthIn(max = if (tvLayout) 1200.dp else maxWidth)
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .background(
+                            Brush.linearGradient(
+                                if (dark) listOf(Color(0xFF080F1B), Color(0xFF101D31), Color(0xFF17162C))
+                                else listOf(Color(0xFFF1F5FA), Color(0xFFE8F2FC), Color(0xFFF5F0FF))
+                            )
+                        )
+                        .padding(
+                            horizontal = if (tvLayout) 36.dp else 16.dp,
+                            vertical = if (tvLayout) 24.dp else 8.dp
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(if (tvLayout) 20.dp else 12.dp),
+                    content = content
                 )
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content
-        )
+            }
+        }
     }
 }
 
