@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.provider.Settings
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -208,9 +211,13 @@ private fun TvAppTile(
             .padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            label.take(1).uppercase(Locale.getDefault()),
-            color = TvAccent, fontSize = 28.sp, fontWeight = FontWeight.Bold
+        val icon = remember(app.activityInfo.packageName) {
+            app.loadIcon(packageManager).toBitmap(96, 96).asImageBitmap()
+        }
+        Image(
+            bitmap = icon,
+            contentDescription = label,
+            modifier = Modifier.size(42.dp)
         )
         Spacer(Modifier.height(8.dp))
         Text(label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
