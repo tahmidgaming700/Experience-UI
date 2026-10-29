@@ -54,7 +54,7 @@ fun ExperienceTvHome(
     }
     val featured = apps.filter {
         val label = it.loadLabel(packageManager).toString().lowercase(Locale.getDefault())
-        listOf("youtube", "netflix", "prime video", "plex", "vlc", "browser", "chrome").any(label::contains)
+        listOf("youtube", "netflix", "prime video", "plex", "vlc", "browser", "chrome").any { label.contains(it) }
     }.take(6)
     var selectedTab by remember { mutableStateOf("Home") }
     var search by remember { mutableStateOf("") }
