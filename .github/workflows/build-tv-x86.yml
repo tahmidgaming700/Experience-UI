@@ -1,0 +1,196 @@
+name: Build Experience UI TV x86_64 ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [rebuild/functional-system-apps]
+    paths:
+      - ".github/workflows/build-tv-x86.yml"
+      - "tv/**"
+      - "launcher/**"
+      - "core-ui/**"
+      - "settings/**"
+      - "setupwizard/**"
+      - "dialer/**"
+      - "messages/**"
+      - "contacts/**"
+      - "notes/**"
+      - "clock/**"
+      - "calendar/**"
+      - "calculator/**"
+      - "files/**"
+      - "gallery/**"
+      - "camera/**"
+      - "converter/**"
+      - "ota-updater/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: experience-ui-tv-x86-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-tv:
+    name: Build Experience UI TV x86_64 ISO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      BASE_ISO_URL: https://downloads.sourceforge.net/project/lineageos-tv-x86/lineage-21.0/x86_64_tv/lineage-21.0-20260331-UNOFFICIAL-x86_64_tv-signed.iso
+      BASE_ISO_NAME: lineage-21.0-20260331-UNOFFICIAL-x86_64_tv-signed.iso
+      BUILD_TOOLS_VERSION: "35.0.0"
+
+    steps:
+      - name: Checkout Experience UI
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Configure Android SDK
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SDK_ROOT="/usr/local/lib/android/sdk"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          fi
+          [[ -x "$SDKMANAGER" ]] || { echo "::error::Android sdkmanager not found"; exit 1; }
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          test -x "$SDK_ROOT/build-tools/35.0.0/aapt"
+
+      - name: Build Experience UI APK suite
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gradle --no-daemon --stacktrace assembleDebug
+          mkdir -p dist/apks
+          modules=(launcher settings setupwizard dialer messages contacts notes clock calendar calculator files gallery camera converter ota-updater)
+          for module in "${modules[@]}"; do
+            apk="$module/build/outputs/apk/debug/$module-debug.apk"
+            [[ -s "$apk" ]] || { echo "::error::Missing APK: $apk"; exit 1; }
+            "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt" dump badging "$apk" >/dev/null
+            cp "$apk" "dist/apks/Experience-$module.apk"
+          done
+
+      - name: Download and inspect upstream Android TV ISO
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p work/iso-root dist/metadata
+          curl --fail --location --retry 4 --retry-all-errors --output base.iso "$BASE_ISO_URL"
+          test -s base.iso
+          file base.iso | tee dist/metadata/base-iso-file.txt
+          sha256sum base.iso | tee dist/metadata/base-iso.sha256
+          printf '%s\n' "$BASE_ISO_URL" > dist/metadata/base-iso-url.txt
+          printf '%s\n' "$BASE_ISO_NAME" > dist/metadata/base-iso-filename.txt
+          xorriso -osirrox on -indev base.iso -extract / work/iso-root
+          find work/iso-root -maxdepth 3 -type f -printf '%p %s bytes\n' | sort > dist/metadata/iso-file-list.txt
+          SYSTEM_IMAGE="$(find work/iso-root -type f \( -name system.efs -o -name system.img -o -name system.sfs \) -print -quit)"
+          [[ -n "$SYSTEM_IMAGE" ]] || { echo "::error::Could not locate system.efs/system.img/system.sfs in upstream ISO"; exit 1; }
+          echo "SYSTEM_IMAGE=$SYSTEM_IMAGE" >> "$GITHUB_ENV"
+          file "$SYSTEM_IMAGE" | tee dist/metadata/system-image-file.txt
+          if ! debugfs -R 'stats' "$SYSTEM_IMAGE" > dist/metadata/system-image-ext4.txt 2>&1; then
+            echo "::error::System image is not directly writable ext4; refusing to mutate unknown image format."
+            cat dist/metadata/system-image-file.txt
+            exit 1
+          fi
+          e2fsck -fn "$SYSTEM_IMAGE"
+
+      - name: Inject Experience UI apps into Android TV system image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          IMAGE="$SYSTEM_IMAGE"
+          dir_exists() {
+            debugfs -R "stat $1" "$IMAGE" 2>&1 | grep -q 'Type: directory'
+          }
+          write_cmd() { debugfs -w -R "$1" "$IMAGE"; }
+          if dir_exists /system/app; then ROOT=/system
+          elif dir_exists /app; then ROOT=
+          else
+            echo "::error::Cannot find Android app directory inside system image"
+            debugfs -R 'ls -l /' "$IMAGE" || true
+            exit 1
+          fi
+          for apk in dist/apks/Experience-*.apk; do
+            module="$(basename "$apk" .apk | sed 's/^Experience-//')"
+            case "$module" in
+              launcher) appdir=ExperienceTVLauncher ;;
+              settings) appdir=ExperienceSettings ;;
+              setupwizard) appdir=ExperienceSetupWizard ;;
+              dialer) appdir=ExperienceDialer ;;
+              messages) appdir=ExperienceMessages ;;
+              contacts) appdir=ExperienceContacts ;;
+              notes) appdir=ExperienceNotes ;;
+              clock) appdir=ExperienceClock ;;
+              calendar) appdir=ExperienceCalendar ;;
+              calculator) appdir=ExperienceCalculator ;;
+              files) appdir=ExperienceFiles ;;
+              gallery) appdir=ExperienceGallery ;;
+              camera) appdir=ExperienceCamera ;;
+              converter) appdir=ExperienceConverter ;;
+              ota-updater) appdir=ExperienceUpdater ;;
+              *) echo "::error::Unexpected module $module"; exit 1 ;;
+            esac
+            dir="$ROOT/app/$appdir"
+            if ! dir_exists "$dir"; then write_cmd "mkdir $dir"; fi
+            dir_exists "$dir" || { echo "::error::Could not create $dir"; exit 1; }
+            write_cmd "write $apk $dir/$appdir.apk"
+            write_cmd "set_inode_field $dir/$appdir.apk mode 0100644"
+            debugfs -R "stat $dir/$appdir.apk" "$IMAGE" 2>&1 | grep -q 'Type: regular'
+          done
+          mkdir -p "$ROOT"
+          printf '%s\n' \
+            'Experience UI TV x86_64 — experimental ISO integration' \
+            'Base: LineageOS TV x86_64 Android 14 ISO, upstream build dated 2026-03-31' \
+            'Architecture: x86_64; this is separate from the ARM64 phone GSI' \
+            'Experience UI APKs are early development apps; TV remote/D-pad usability is not fully certified.' \
+            'No upstream kernel, bootloader, or vendor files were intentionally changed.' > dist/metadata/TV-BUILD-INFO.txt
+          e2fsck -fn "$IMAGE"
+
+      - name: Rebuild bootable ISO while replaying original boot settings
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REL_IMAGE="${SYSTEM_IMAGE#work/iso-root/}"
+          [[ "$REL_IMAGE" != "$SYSTEM_IMAGE" ]] || { echo "::error::System image is outside extracted ISO tree"; exit 1; }
+          xorriso -indev base.iso -outdev dist/ExperienceUI-TV-x86_64-experimental.iso \
+            -boot_image any replay -map "$SYSTEM_IMAGE" "/$REL_IMAGE" -commit
+          test -s dist/ExperienceUI-TV-x86_64-experimental.iso
+          xorriso -indev dist/ExperienceUI-TV-x86_64-experimental.iso -toc > dist/metadata/output-iso-toc.txt
+          sha256sum dist/ExperienceUI-TV-x86_64-experimental.iso | tee dist/metadata/ExperienceUI-TV-x86_64.sha256
+          cat > dist/metadata/TEST-REPORT.txt <<'REPORT'
+          APK build and basic package metadata: checked in CI.
+          Base ISO download and image format: checked in CI.
+          System image filesystem: checked before and after app injection.
+          ISO rebuilt using xorriso boot-image replay: checked in CI.
+          Physical PC/TV hardware boot: NOT TESTED.
+          Remote-control navigation, HDMI audio, Wi-Fi, Bluetooth, DRM and streaming apps: NOT CERTIFIED.
+          This is an experimental repack, not a source-built ROM. Keep the original ISO and test in a virtual machine or spare PC first.
+          REPORT
+
+      - name: Upload experimental TV ISO and APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: experience-ui-tv-x86_64-experimental
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
