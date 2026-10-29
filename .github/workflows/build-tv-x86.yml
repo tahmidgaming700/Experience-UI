@@ -27,7 +27,7 @@ permissions:
 
 concurrency:
   group: experience-ui-tv-x86-optimized-64-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-tv:
