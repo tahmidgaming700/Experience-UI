@@ -111,11 +111,13 @@ fun ExperienceScaffold(
         }
     ) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
-            val tvLayout = maxWidth >= 840.dp
+            // Capture BoxWithConstraints' width before entering nested layout lambdas.
+            val availableWidth = this.maxWidth
+            val tvLayout = availableWidth >= 840.dp
             Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
                 Column(
                     Modifier
-                        .widthIn(max = if (tvLayout) 1200.dp else maxWidth)
+                        .widthIn(max = if (tvLayout) 1200.dp else availableWidth)
                         .fillMaxWidth()
                         .fillMaxHeight()
                         .background(
