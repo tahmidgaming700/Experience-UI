@@ -88,9 +88,11 @@ jobs:
           make -j"$(nproc)"
           sudo make install
           sudo ldconfig
-          command -v fsck.erofs
-          fsck.erofs --version
-          fsck.erofs --help 2>&1 | tee "$GITHUB_WORKSPACE/dist-erofs-help.txt"
+          FSCK_EROFS="$(command -v fsck.erofs)"
+          echo "FSCK_EROFS=$FSCK_EROFS" >> "$GITHUB_ENV"
+          echo "Using fsck.erofs at: $FSCK_EROFS"
+          "$FSCK_EROFS" --version
+          "$FSCK_EROFS" --help 2>&1 | tee "$GITHUB_WORKSPACE/dist-erofs-help.txt"
           grep -Eq -- '--extract(=|\[=)' "$GITHUB_WORKSPACE/dist-erofs-help.txt"
 
       - name: Build only TV-relevant Experience UI apps
@@ -170,19 +172,32 @@ jobs:
         run: |
           set -Eeuo pipefail
           SYSTEM_IMAGE="$SYSTEM_IMAGE"
-          sudo mkdir -p work/system-root
-          # Extract as root to retain source ownership, modes, and supported xattrs.
-          # --xattrs is essential here: Android SELinux labels are stored as
-          # extended attributes. --preserve keeps upstream ownership and modes.
-          sudo fsck.erofs --extract=work/system-root --xattrs --preserve "$SYSTEM_IMAGE"
-          # Fail at extraction itself if the tool did not actually materialize
-          # the filesystem; don't continue with an empty root and misdiagnose it.
-          [[ -n "$(sudo find work/system-root -mindepth 1 -maxdepth 2 -print -quit)" ]] || {
-            echo "::error::fsck.erofs reported success but extracted no filesystem entries"
-            fsck.erofs --version
-            fsck.erofs --help || true
+          SYSTEM_IMAGE_ABS="$PWD/$SYSTEM_IMAGE"
+          EXTRACT_DIR="$PWD/work/system-root"
+          sudo rm -rf "$EXTRACT_DIR"
+          sudo mkdir -p "$EXTRACT_DIR"
+          # Use the exact freshly-built binary by absolute path. Calling it via
+          # sudo with only its name can select a different system-installed
+          # fsck.erofs due to sudo's secure PATH.
+          [[ -x "$FSCK_EROFS" ]] || { echo "::error::Built fsck.erofs binary missing: $FSCK_EROFS"; exit 1; }
+          echo "EROFS image: $SYSTEM_IMAGE_ABS"
+          file "$SYSTEM_IMAGE_ABS"
+          "$FSCK_EROFS" --version
+          # Use absolute input/output paths so extraction does not depend on
+          # the current working directory. Capture verbose diagnostics on failure.
+          if ! sudo "$FSCK_EROFS" -d 7 --extract="$EXTRACT_DIR" --xattrs --preserve "$SYSTEM_IMAGE_ABS" 2>&1 | tee dist/metadata/erofs-extract.log; then
+            echo "::error::fsck.erofs extraction command failed"
             exit 1
-          }
+          fi
+          # A successful integrity scan is not sufficient: require real files.
+          EXTRACTED_COUNT="$(sudo find "$EXTRACT_DIR" -mindepth 1 -maxdepth 3 -print -quit | wc -l)"
+          if [[ "$EXTRACTED_COUNT" -eq 0 ]]; then
+            echo "::error::fsck.erofs returned success but extracted zero entries"
+            ls -ld "$EXTRACT_DIR"
+            ls -lh "$SYSTEM_IMAGE_ABS"
+            cat dist/metadata/erofs-extract.log
+            exit 1
+          fi
           if [[ -d work/system-root/app ]]; then
             SYSTEM_ROOT=work/system-root
             EROFS_MOUNT_POINT=/system
