@@ -38,6 +38,10 @@ The repository now includes a **LineageOS-derived GSI build plan** under [`gsi/`
 
 See [GSI build status](gsi/BUILD_STATUS.md) before attempting any device modification.
 
+## Android TV / x86_64 edition
+
+A separate experimental PC/TV target is documented in [`tv/README.md`](tv/README.md). It uses the upstream LineageOS TV x86_64 Android 14 ISO and has its own [GitHub Actions workflow](.github/workflows/build-tv-x86.yml). This target is **not** the ARM64 Huawei Y9 GSI. The TV image is experimental; D-pad/remote usability and physical hardware boot are not certified, and the workflow may stop if the upstream ISO layout changes.
+
 ## Device targets
 
 - **Huawei Y9 2019 — JKM-LX2:** Android 9 / EMUI 9.1 (API 28) is the app compatibility baseline.
