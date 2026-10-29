@@ -104,15 +104,15 @@ private fun SettingsHome(
 
 @Composable
 private fun SettingItem(title: String, summary: String, onClick: () -> Unit) {
-    var focused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val focusedState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val tvLayout = LocalConfiguration.current.screenWidthDp >= 840
     Card(
         modifier = Modifier.fillMaxWidth()
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged { focusedState.value = it.isFocused }
             .border(
                 BorderStroke(
-                    if (focused) 3.dp else 1.dp,
-                    if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                    if (focusedState.value) 3.dp else 1.dp,
+                    if (focusedState.value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                 ),
                 RoundedCornerShape(20.dp)
             )
@@ -120,7 +120,7 @@ private fun SettingItem(title: String, summary: String, onClick: () -> Unit) {
             .focusable(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (focused) MaterialTheme.colorScheme.primaryContainer
+            containerColor = if (focusedState.value) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surface
         )
     ) {
