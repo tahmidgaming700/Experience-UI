@@ -80,6 +80,7 @@ jobs:
           sudo apt-get install -y xorriso e2fsprogs file unzip attr \
             autoconf automake gcc make libfuse-dev liblz4-dev liblzma-dev \
             libtool libzstd-dev pkg-config uuid-dev zlib1g-dev
+          mkdir -p work
           git clone --depth 1 --branch master https://github.com/erofs/erofs-utils.git work/erofs-utils
           cd work/erofs-utils
           ./autogen.sh
