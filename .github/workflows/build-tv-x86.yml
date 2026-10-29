@@ -47,6 +47,11 @@ jobs:
       - name: Checkout Experience UI
         uses: actions/checkout@v4
 
+      - name: Install ISO and filesystem tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso e2fsprogs curl file
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
