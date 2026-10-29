@@ -80,7 +80,10 @@ jobs:
           set -Eeuo pipefail
           # Phone-only dialer, contacts, messaging and camera modules are intentionally excluded.
           modules=(launcher settings setupwizard notes clock calendar calculator files gallery converter ota-updater)
-          gradle --no-daemon --stacktrace assembleDebug
+          gradle_tasks=()
+          for module in "${modules[@]}"; do gradle_tasks+=(":$module:assembleDebug"); done
+          # Do not compile phone-only app modules for the TV image.
+          gradle --no-daemon --stacktrace "${gradle_tasks[@]}"
           mkdir -p dist/apks
           for module in "${modules[@]}"; do
             apk="$module/build/outputs/apk/debug/$module-debug.apk"
