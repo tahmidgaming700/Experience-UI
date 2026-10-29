@@ -1,4 +1,4 @@
-name: Build Experience UI GSI (GitHub Ubuntu)
+name: Build Experience UI Android 11 GSI (GitHub Ubuntu)
 
 on:
   workflow_dispatch:
@@ -45,8 +45,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      BASE_URL: https://sourceforge.net/projects/andyyan-gsi/files/lineage-19.x/lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz/download
-      BASE_FILE: lineage-19.1-20250606-UNOFFICIAL-arm64_bgN-signed.img.gz
+      BASE_URL: https://github.com/dotos-downloads/arm64/releases/download/v5.2/dotOS-R-v5.2-arm64-ab-GAPPS-OFFICIAL.img.xz
+      BASE_FILE: dotOS-R-v5.2-arm64-ab-GAPPS-OFFICIAL.img.xz
       BUILD_TOOLS_VERSION: "35.0.0"
 
     steps:
@@ -154,26 +154,26 @@ jobs:
         run: |
           set -Eeuo pipefail
           sudo apt-get update
-          sudo apt-get install -y e2fsprogs gzip wget file android-sdk-libsparse-utils
+          sudo apt-get install -y e2fsprogs xz-utils wget file android-sdk-libsparse-utils
 
-      - name: Restore cached Android 12 ARM64 base GSI
+      - name: Restore cached dotOS Android 11 ARM64 base GSI
         uses: actions/cache@v4
         with:
-          path: base.img.gz
-          key: experience-base-gsi-lineage-19.1-20250606-arm64-bgn-v1
+          path: base.img.xz
+          key: experience-base-gsi-dotos-r-v5.2-arm64-ab-gapps-v1
 
-      - name: Download and verify Android 12 ARM64 base GSI
+      - name: Download and verify dotOS Android 11 ARM64 base GSI
         shell: bash
         run: |
           set -Eeuo pipefail
           mkdir -p dist/metadata
-          if [[ ! -s base.img.gz ]]; then
-            wget --https-only --max-redirect=20 --tries=4 --retry-connrefused --timeout=90 -O base.img.gz "$BASE_URL"
+          if [[ ! -s base.img.xz ]]; then
+            wget --https-only --max-redirect=20 --tries=4 --retry-connrefused --timeout=90 -O base.img.xz "$BASE_URL"
           else
             echo "Using cached base GSI archive."
           fi
-          gzip -t base.img.gz
-          gzip -dc base.img.gz > base.img
+          xz -t base.img.xz
+          xz -dc base.img.xz > base.img
           test -s base.img
           file base.img | tee dist/metadata/base-image-file.txt
           sha256sum base.img | tee dist/metadata/base-image.sha256
@@ -286,8 +286,8 @@ jobs:
           write_image "set_inode_field $SYSTEM_ROOT/media/bootanimation.zip mode 0100644"
           ensure_dir "$SYSTEM_ROOT/etc/experience-ui"
           cat > dist/metadata/BUILD_INFO.txt <<'INFO'
-          Harmony Experience UI — experimental Android 12 GSI repack
-          Base: Andy Yan LineageOS 19.1 GApps ARM64
+          Harmony Experience UI — experimental Android 11 GSI repack
+          Base: dotOS R v5.2 GApps ARM64 A/B GSI
           Included: Experience UI apps, updater metadata checker, generated boot animation
           OTA installation: not enabled; no signed OTA package is published
           Target architecture: ARM64
@@ -363,9 +363,9 @@ jobs:
           set -Eeuo pipefail
           e2fsck -fn system.raw.img
           mkdir -p dist/image
-          cp --reflink=auto system.raw.img dist/image/ExperienceUI-Android12-arm64-experimental.img
-          file dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/output-image-file.txt
-          sha256sum dist/image/ExperienceUI-Android12-arm64-experimental.img | tee dist/metadata/ExperienceUI-image.sha256
+          cp --reflink=auto system.raw.img dist/image/ExperienceUI-Android11-arm64-experimental.img
+          file dist/image/ExperienceUI-Android11-arm64-experimental.img | tee dist/metadata/output-image-file.txt
+          sha256sum dist/image/ExperienceUI-Android11-arm64-experimental.img | tee dist/metadata/ExperienceUI-image.sha256
           cat > dist/metadata/TEST-REPORT.txt <<'REPORT'
           APK ZIP/signature/metadata checks: required to pass.
           Boot animation archive/frame/descriptor checks: required to pass.
@@ -378,7 +378,7 @@ jobs:
           REPORT
           {
             echo "Build: experimental prebuilt GSI repack; not a full Android source build"
-            echo "Base: Andy Yan LineageOS 19.1 Android 12 GApps ARM64"
+            echo "Base: dotOS R v5.2 Android 11 GApps ARM64"
             echo "Target architecture: arm64"
             echo "Harmony Experience UI Huawei-only dynamic app branding: not implemented in this workflow"
             echo "GSI boot: not verified"
