@@ -54,20 +54,31 @@ class MainActivity : ComponentActivity() {
                     onSurface = Color.White
                 )
             ) {
-                ExperienceHome(
-                    onLaunchApp = { packageName ->
-                        packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
-                            runCatching { startActivity(intent) }
+                val launchApp: (String) -> Unit = { packageName ->
+                    packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
+                        runCatching { startActivity(intent) }
+                    }
+                }
+                if (packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)) {
+                    ExperienceTvHome(
+                        packageManager = packageManager,
+                        onLaunchApp = launchApp,
+                        onOpenSettings = {
+                            runCatching { startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
                         }
-                    },
-                    apps = remember {
-                        packageManager.queryIntentActivities(
-                            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0
-                        ).distinctBy { it.activityInfo.packageName }
-                            .sortedBy { it.loadLabel(packageManager).toString().lowercase(Locale.getDefault()) }
-                    },
-                    packageManager = packageManager
-                )
+                    )
+                } else {
+                    ExperienceHome(
+                        onLaunchApp = launchApp,
+                        apps = remember {
+                            packageManager.queryIntentActivities(
+                                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0
+                            ).distinctBy { it.activityInfo.packageName }
+                                .sortedBy { it.loadLabel(packageManager).toString().lowercase(Locale.getDefault()) }
+                        },
+                        packageManager = packageManager
+                    )
+                }
             }
         }
     }
