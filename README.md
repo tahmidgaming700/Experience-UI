@@ -40,6 +40,9 @@ See [GSI build status](gsi/BUILD_STATUS.md) before attempting any device modific
 
 ## Android TV / x86_64 edition
 
+The launcher now detects Android TV/Leanback devices and switches to a TV-first home screen with large focus-highlighted app tiles, D-pad navigation, remote-keyboard search, a featured app row and a Settings shortcut. App manifests declare touchscreen hardware optional for TV/remote-only devices. This is an initial compatibility pass; each app’s full remote usability still requires individual testing.
+
+
 A separate experimental PC/TV target is documented in [`tv/README.md`](tv/README.md). It uses the upstream LineageOS TV x86_64 Android 14 ISO and has its own [GitHub Actions workflow](.github/workflows/build-tv-x86.yml). This target is **not** the ARM64 Huawei Y9 GSI. The TV image is experimental; D-pad/remote usability and physical hardware boot are not certified, and the workflow may stop if the upstream ISO layout changes.
 
 ## Device targets
