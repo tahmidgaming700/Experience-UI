@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 
 private val GlassBlue = Color(0xFF7CCBFF)
@@ -110,11 +111,9 @@ fun ExperienceScaffold(
             }
         }
     ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
-            // Capture BoxWithConstraints' width before entering nested layout lambdas.
-            val availableWidth = this.maxWidth
-            val tvLayout = availableWidth >= 840.dp
-            Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
+        val availableWidth = LocalConfiguration.current.screenWidthDp.dp
+        val tvLayout = availableWidth >= 840.dp
+        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
                 Column(
                     Modifier
                         .widthIn(max = if (tvLayout) 1200.dp else availableWidth)
@@ -133,7 +132,6 @@ fun ExperienceScaffold(
                     verticalArrangement = Arrangement.spacedBy(if (tvLayout) 20.dp else 12.dp),
                     content = content
                 )
-            }
         }
     }
 }
