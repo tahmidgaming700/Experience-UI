@@ -69,10 +69,28 @@ jobs:
           test -x "$SDK_ROOT/build-tools/35.0.0/aapt"
           test -x "$SDK_ROOT/build-tools/35.0.0/apksigner"
 
-      - name: Install ISO and EROFS tools
+      - name: Install ISO tools and build current EROFS utilities
+        shell: bash
         run: |
+          set -Eeuo pipefail
+          # Ubuntu 24.04 ships an older fsck.erofs that only validates EROFS;
+          # it does not support extraction to a destination directory. Build
+          # the current stable erofs-utils so --extract=DIR and xattrs work.
           sudo apt-get update
-          sudo apt-get install -y xorriso erofs-utils e2fsprogs file unzip attr
+          sudo apt-get install -y xorriso e2fsprogs file unzip attr \
+            autoconf automake gcc make libfuse-dev liblz4-dev liblzma-dev \
+            libtool libzstd-dev pkg-config uuid-dev zlib1g-dev
+          git clone --depth 1 --branch master https://github.com/erofs/erofs-utils.git work/erofs-utils
+          cd work/erofs-utils
+          ./autogen.sh
+          ./configure --enable-lz4 --enable-lzma --enable-fuse --with-libzstd --with-uuid
+          make -j"$(nproc)"
+          sudo make install
+          sudo ldconfig
+          command -v fsck.erofs
+          fsck.erofs --version
+          fsck.erofs --help 2>&1 | tee "$GITHUB_WORKSPACE/dist-erofs-help.txt"
+          grep -Eq -- '--extract(=|\[=)' "$GITHUB_WORKSPACE/dist-erofs-help.txt"
 
       - name: Build only TV-relevant Experience UI apps
         shell: bash
@@ -153,7 +171,17 @@ jobs:
           SYSTEM_IMAGE="$SYSTEM_IMAGE"
           sudo mkdir -p work/system-root
           # Extract as root to retain source ownership, modes, and supported xattrs.
-          sudo fsck.erofs --extract=work/system-root "$SYSTEM_IMAGE"
+          # --xattrs is essential here: Android SELinux labels are stored as
+          # extended attributes. --preserve keeps upstream ownership and modes.
+          sudo fsck.erofs --extract=work/system-root --xattrs --preserve "$SYSTEM_IMAGE"
+          # Fail at extraction itself if the tool did not actually materialize
+          # the filesystem; don't continue with an empty root and misdiagnose it.
+          [[ -n "$(sudo find work/system-root -mindepth 1 -maxdepth 2 -print -quit)" ]] || {
+            echo "::error::fsck.erofs reported success but extracted no filesystem entries"
+            fsck.erofs --version
+            fsck.erofs --help || true
+            exit 1
+          }
           if [[ -d work/system-root/app ]]; then
             SYSTEM_ROOT=work/system-root
             EROFS_MOUNT_POINT=/system
