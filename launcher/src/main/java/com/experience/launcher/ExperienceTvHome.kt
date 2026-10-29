@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -114,6 +116,30 @@ fun ExperienceTvHome(
                         color = Color.White.copy(alpha = .72f), fontSize = 15.sp)
                 }
                 TvFocusCard("⚙  Settings", onClick = onOpenSettings)
+            }
+
+            Row(
+                Modifier.fillMaxWidth()
+                    .border(1.dp, Color.White.copy(alpha = .16f), RoundedCornerShape(16.dp))
+                    .background(Color(0xFF101F3B), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 18.dp, vertical = 15.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("⌕", color = TvAccent, fontSize = 26.sp)
+                Spacer(Modifier.width(12.dp))
+                BasicTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = Color.White, fontSize = 18.sp),
+                    modifier = Modifier.fillMaxWidth(),
+                    decorationBox = { inner ->
+                        if (search.isBlank()) {
+                            Text("Search apps (use your remote keyboard)", color = Color.White.copy(alpha = .55f), fontSize = 16.sp)
+                        }
+                        inner()
+                    }
+                )
             }
 
             if (selectedTab != "Apps" && featured.isNotEmpty()) {
