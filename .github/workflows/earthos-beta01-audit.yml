@@ -92,7 +92,7 @@ jobs:
           set -euo pipefail
           brew install xorriso
 
-      - name: Download the official Android-x86 9.0-r5 ISO
+      - name: Download the official Android-x86 9.0-r2 ISO
         shell: bash
         run: |
           set -euo pipefail
@@ -127,7 +127,7 @@ jobs:
           {
             echo "# EarthOS Beta 01 — Base ISO audit"
             echo
-            echo "- Base: Android-x86 9.0-r5"
+            echo "- Base: Android-x86 9.0-r2"
             echo "- Target ABI: x86_64"
             echo "- Android API level: 28"
             echo "- Runner: macOS 26 Intel (x86_64)"
@@ -163,7 +163,7 @@ jobs:
           set -euo pipefail
           gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Check APK minimum Android versions against Android 7.1
+      - name: Check APK minimum Android versions against Android 9.0
         shell: bash
         run: |
           set -euo pipefail
@@ -213,12 +213,12 @@ jobs:
             echo "### Compatibility totals"
             echo
             echo "- API-compatible by minSdk: $COMPATIBLE"
-            echo "- Incompatible with Android 7.1: $INCOMPATIBLE"
+            echo "- Incompatible with Android 9.0: $INCOMPATIBLE"
             echo "- Missing/unreadable APKs: $MISSING"
           } >> earthos/reports/audit-report.md
 
           if (( INCOMPATIBLE > 0 )); then
-            echo "::warning::$INCOMPATIBLE Experience UI APK(s) require a newer Android API than Android 7.1 (API 28). They must not be injected into this ISO as-is."
+            echo "::warning::$INCOMPATIBLE Experience UI APK(s) require a newer Android API than Android 9.0 (API 28). They must not be injected into this ISO as-is."
           fi
 
       - name: Publish audit summary
