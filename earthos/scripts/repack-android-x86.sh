@@ -36,17 +36,28 @@ SYSTEM_REL="/${SYSTEM_REL#/}"
 echo "System image path in ISO: $SYSTEM_REL"
 
 unsquashfs -no-progress -d "$SYSTEM_ROOT" "$SYSTEM_IMAGE"
-mkdir -p "$SYSTEM_ROOT/system/media/earthos" "$SYSTEM_ROOT/system/etc/earthos"
+# Android-x86 system.sfs normally stores the contents of /system at its root.
+# Accept either layout so the repacker fails safely if the base differs.
+if [[ -f "$SYSTEM_ROOT/build.prop" ]]; then
+  SYSTEM_DIR="$SYSTEM_ROOT"
+elif [[ -f "$SYSTEM_DIR/build.prop" ]]; then
+  SYSTEM_DIR="$SYSTEM_ROOT/system"
+else
+  echo "::error::Could not locate build.prop at the root of the extracted system image."
+  find "$SYSTEM_ROOT" -maxdepth 3 -type f -name build.prop -print || true
+  exit 1
+fi
+mkdir -p "$SYSTEM_DIR/media/earthos" "$SYSTEM_DIR/etc/earthos"
 
-magick -background none "$REPO_ROOT/earthos/branding/earthos-wallpaper.svg" -resize 1920x1080! "$SYSTEM_ROOT/system/media/earthos/EarthOS-Beta-01-wallpaper.png"
+magick -background none "$REPO_ROOT/earthos/branding/earthos-wallpaper.svg" -resize 1920x1080! "$SYSTEM_DIR/media/earthos/EarthOS-Beta-01-wallpaper.png"
 magick -background none "$REPO_ROOT/earthos/branding/boot-screen.svg" -resize 720x1280! "$MOUNT/boot-frame.png"
 
 mkdir -p "$MOUNT/boot/part0"
 cp "$MOUNT/boot-frame.png" "$MOUNT/boot/part0/00000.png"
 printf '720 1280 30\np 1 0 part0\n' > "$MOUNT/boot/desc.txt"
-(cd "$MOUNT/boot" && zip -q -r "$SYSTEM_ROOT/system/media/bootanimation.zip" desc.txt part0)
+(cd "$MOUNT/boot" && zip -q -r "$SYSTEM_DIR/media/bootanimation.zip" desc.txt part0)
 
-BUILD_PROP="$SYSTEM_ROOT/system/build.prop"
+BUILD_PROP="$SYSTEM_DIR/build.prop"
 if [[ ! -f "$BUILD_PROP" ]]; then
   echo "::error::Could not find /system/build.prop in extracted Android-x86 image."
   exit 1
@@ -73,7 +84,7 @@ with open(path,"w",encoding="utf-8",newline="\n") as f:
     f.write("\n".join(lines)+"\n")
 PY
 
-cat > "$SYSTEM_ROOT/system/etc/earthos/release.json" <<'JSON'
+cat > "$SYSTEM_DIR/etc/earthos/release.json" <<'JSON'
 {
   "name": "EarthOS",
   "version": "1.0.0-beta.1",
@@ -88,8 +99,8 @@ JSON
 
 # Keep the Android-x86 stock Launcher3, setup flow, and stock applications.
 # Do not inject Experience UI APKs or replace stock framework resources.
-STOCK_LAUNCHER="$(find "$SYSTEM_ROOT/system" -type f -iname '*launcher*.apk' -print -quit || true)"
-STOCK_SETUP="$(find "$SYSTEM_ROOT/system" -type f \( -iname '*setupwizard*.apk' -o -iname '*provision*.apk' \) -print -quit || true)"
+STOCK_LAUNCHER="$(find "$SYSTEM_DIR" -type f -iname '*launcher*.apk' -print -quit || true)"
+STOCK_SETUP="$(find "$SYSTEM_DIR" -type f \( -iname '*setupwizard*.apk' -o -iname '*provision*.apk' \) -print -quit || true)"
 if [[ -z "$STOCK_LAUNCHER" ]]; then
   echo "::warning::No stock launcher APK was found by filename; review the system app inventory."
 fi
