@@ -93,7 +93,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle clean assembleDebug --no-daemon --stacktrace
+          gradle assembleDebug --no-daemon --stacktrace --console=plain
           echo "All repository application modules compiled from source." >> "$GITHUB_STEP_SUMMARY"
           echo "These Experience UI APKs are deliberately not injected into Beta 01; this release keeps the stock Android 9 interface." >> "$GITHUB_STEP_SUMMARY"
 
