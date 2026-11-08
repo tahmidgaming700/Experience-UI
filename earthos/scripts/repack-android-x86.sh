@@ -16,7 +16,7 @@ MOUNT="$WORK_ROOT/mnt"
 mkdir -p "$MOUNT"
 if [[ ! -f "$IMAGE" ]]; then
   echo "Creating a 24 GB sparse, case-sensitive APFS work volume."
-  hdiutil create -size 24g -type SPARSE -fs APFSX -volname EARTHOS_WORK "$IMAGE"
+  hdiutil create -size 24g -type SPARSE -fs 'Case-sensitive APFS' -volname EARTHOS_WORK "$IMAGE"
 fi
 echo "Attaching case-sensitive work volume at $MOUNT."
 hdiutil attach -nobrowse -mountpoint "$MOUNT" "$IMAGE"
