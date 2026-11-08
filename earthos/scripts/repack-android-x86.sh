@@ -40,7 +40,7 @@ unsquashfs -no-progress -d "$SYSTEM_ROOT" "$SYSTEM_IMAGE"
 # Accept either layout so the repacker fails safely if the base differs.
 if [[ -f "$SYSTEM_ROOT/build.prop" ]]; then
   SYSTEM_DIR="$SYSTEM_ROOT"
-elif [[ -f "$SYSTEM_DIR/build.prop" ]]; then
+elif [[ -f "$SYSTEM_ROOT/system/build.prop" ]]; then
   SYSTEM_DIR="$SYSTEM_ROOT/system"
 else
   echo "::error::Could not locate build.prop at the root of the extracted system image."
