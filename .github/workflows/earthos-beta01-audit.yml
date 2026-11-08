@@ -1,0 +1,200 @@
+name: EarthOS Beta 01 — Android-x86 7.1 audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/earthos-beta01-audit.yml"
+      - "earthos/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: earthos-beta01-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Inspect Android-x86 7.1 on macOS 26 Intel
+    runs-on: macos-26-intel
+    timeout-minutes: 90
+
+    env:
+      ISO_URL: https://sourceforge.net/projects/android-x86/files/Release%207.1/android-x86_64-7.1-r5.iso/download
+      ISO_NAME: android-x86_64-7.1-r5.iso
+      ANDROID_API: "25"
+      ANDROID_BUILD_TOOLS: "35.0.0"
+
+    steps:
+      - name: Check out Experience UI
+        uses: actions/checkout@v4
+
+      - name: Verify runner architecture and available disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner: $(sw_vers -productVersion)"
+          echo "Kernel: $(uname -a)"
+          echo "Architecture: $(uname -m)"
+          if [[ "$(uname -m)" != "x86_64" ]]; then
+            echo "::error::This workflow requires the x86_64 macOS 26 Intel runner."
+            exit 1
+          fi
+          df -h "$RUNNER_TEMP"
+
+      - name: Install ISO inspection tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew update
+          brew install xorriso
+
+      - name: Download the official Android-x86 7.1-r5 ISO
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/earthos/iso" "$RUNNER_TEMP/earthos/extracted" earthos/reports
+          curl --fail --location --retry 5 --retry-all-errors \
+            --connect-timeout 30 --max-time 1800 \
+            --output "$RUNNER_TEMP/earthos/iso/$ISO_NAME" "$ISO_URL"
+          ISO="$RUNNER_TEMP/earthos/iso/$ISO_NAME"
+          test -s "$ISO"
+          SIZE="$(stat -f%z "$ISO")"
+          if (( SIZE < 300000000 )); then
+            echo "::error::Downloaded file is unexpectedly small ($SIZE bytes); refusing to inspect an HTML/error page."
+            file "$ISO" || true
+            exit 1
+          fi
+          file "$ISO" | tee earthos/reports/iso-file-type.txt
+          shasum -a 256 "$ISO" | tee earthos/reports/iso-sha256.txt
+
+      - name: Extract and inspect ISO contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          ISO="$RUNNER_TEMP/earthos/iso/$ISO_NAME"
+          EXTRACTED="$RUNNER_TEMP/earthos/extracted"
+          xorriso -osirrox on -indev "$ISO" -extract / "$EXTRACTED"
+          find "$EXTRACTED" -type f -print | LC_ALL=C sort > earthos/reports/iso-file-list.txt
+
+          SYSTEM_IMAGE="$(find "$EXTRACTED" -type f \( -iname 'system.sfs' -o -iname 'system.img' \) -print -quit)"
+          KERNEL_IMAGE="$(find "$EXTRACTED" -type f \( -iname 'kernel' -o -iname 'vmlinuz' \) -print -quit)"
+          INITRD_IMAGE="$(find "$EXTRACTED" -type f \( -iname 'initrd.img' -o -iname 'initrd' \) -print -quit)"
+
+          {
+            echo "# EarthOS Beta 01 — Base ISO audit"
+            echo
+            echo "- Base: Android-x86 7.1-r5"
+            echo "- Target ABI: x86_64"
+            echo "- Android API level: 25"
+            echo "- Runner: macOS 26 Intel (x86_64)"
+            echo
+            echo "## Detected boot/system files"
+            echo
+            echo "- Kernel: ${KERNEL_IMAGE:-NOT FOUND}"
+            echo "- Initrd: ${INITRD_IMAGE:-NOT FOUND}"
+            echo "- System image: ${SYSTEM_IMAGE:-NOT FOUND}"
+          } > earthos/reports/audit-report.md
+
+          if [[ -z "$SYSTEM_IMAGE" || -z "$KERNEL_IMAGE" || -z "$INITRD_IMAGE" ]]; then
+            echo "::error::The ISO is missing one or more expected Android-x86 boot/system files. Review the extracted file list."
+            exit 1
+          fi
+
+          {
+            echo
+            echo "## Image file identification"
+            echo
+            file "$SYSTEM_IMAGE"
+            file "$KERNEL_IMAGE"
+            file "$INITRD_IMAGE"
+          } >> earthos/reports/audit-report.md
+
+          xorriso -indev "$ISO" -report_el_torito plain > earthos/reports/boot-catalog.txt 2>&1 || {
+            echo "::warning::Could not read El Torito boot catalogue; inspect boot-catalog.txt."
+          }
+
+      - name: Build the existing Experience UI APK modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Check APK minimum Android versions against Android 7.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/aapt"
+          if [[ ! -x "$AAPT" ]]; then
+            echo "::error::Android aapt tool not found at $AAPT"
+            exit 1
+          fi
+
+          mkdir -p earthos/reports/apk-audit
+          COMPATIBLE=0
+          INCOMPATIBLE=0
+          MISSING=0
+          {
+            echo
+            echo "## Experience UI APK compatibility"
+            echo
+            echo "Android-x86 7.1 uses API level $ANDROID_API."
+            echo
+            echo "| Module | APK minSdk | Result |"
+            echo "|---|---:|---|"
+          } >> earthos/reports/audit-report.md
+
+          for module in launcher setupwizard dialer messages contacts notes clock calendar calculator settings files gallery camera converter; do
+            APK="$module/build/outputs/apk/debug/$module-debug.apk"
+            if [[ ! -f "$APK" ]]; then
+              echo "| $module | — | APK missing |" >> earthos/reports/audit-report.md
+              MISSING=$((MISSING + 1))
+              continue
+            fi
+
+            MIN_SDK="$("$AAPT" dump badging "$APK" | sed -n "s/^sdkVersion:'\\([^']*\\)'.*/\\1/p" | head -n 1)"
+            if [[ ! "$MIN_SDK" =~ ^[0-9]+$ ]]; then
+              echo "| $module | unknown | Could not read manifest |" >> earthos/reports/audit-report.md
+              MISSING=$((MISSING + 1))
+            elif (( MIN_SDK > ANDROID_API )); then
+              echo "| $module | $MIN_SDK | INCOMPATIBLE |" >> earthos/reports/audit-report.md
+              INCOMPATIBLE=$((INCOMPATIBLE + 1))
+            else
+              echo "| $module | $MIN_SDK | API-compatible by minSdk |" >> earthos/reports/audit-report.md
+              COMPATIBLE=$((COMPATIBLE + 1))
+            fi
+          done
+
+          {
+            echo
+            echo "### Compatibility totals"
+            echo
+            echo "- API-compatible by minSdk: $COMPATIBLE"
+            echo "- Incompatible with Android 7.1: $INCOMPATIBLE"
+            echo "- Missing/unreadable APKs: $MISSING"
+          } >> earthos/reports/audit-report.md
+
+          if (( INCOMPATIBLE > 0 )); then
+            echo "::warning::$INCOMPATIBLE Experience UI APK(s) require a newer Android API than Android 7.1 (API 25). They must not be injected into this ISO as-is."
+          fi
+
+      - name: Publish audit summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f earthos/reports/audit-report.md ]]; then
+            cat earthos/reports/audit-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "EarthOS audit did not reach report generation. Review the failed step logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload EarthOS audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: earthos-beta-01-base-audit
+          path: earthos/reports/
+          if-no-files-found: warn
+          retention-days: 30
