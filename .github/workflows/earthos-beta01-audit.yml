@@ -1,4 +1,4 @@
-name: EarthOS Beta 01 — Android-x86 7.1 audit
+name: EarthOS Beta 01 — Android-x86 9.0 audit
 
 on:
   workflow_dispatch:
@@ -17,14 +17,14 @@ concurrency:
 
 jobs:
   audit:
-    name: Inspect Android-x86 7.1 on macOS 26 Intel
+    name: Inspect Android-x86 9.0 on macOS 26 Intel
     runs-on: macos-26-intel
     timeout-minutes: 90
 
     env:
-      ISO_URL: https://sourceforge.net/projects/android-x86/files/Release%207.1/android-x86_64-7.1-r5.iso/download
-      ISO_NAME: android-x86_64-7.1-r5.iso
-      ANDROID_API: "25"
+      ISO_URL: https://sourceforge.net/projects/android-x86/files/Release%209.0/android-x86_64-9.0-r2.iso/download
+      ISO_NAME: android-x86_64-9.0-r2.iso
+      ANDROID_API: "28"
       ANDROID_BUILD_TOOLS: "35.0.0"
 
     steps:
@@ -92,7 +92,7 @@ jobs:
           set -euo pipefail
           brew install xorriso
 
-      - name: Download the official Android-x86 7.1-r5 ISO
+      - name: Download the official Android-x86 9.0-r5 ISO
         shell: bash
         run: |
           set -euo pipefail
@@ -127,9 +127,9 @@ jobs:
           {
             echo "# EarthOS Beta 01 — Base ISO audit"
             echo
-            echo "- Base: Android-x86 7.1-r5"
+            echo "- Base: Android-x86 9.0-r5"
             echo "- Target ABI: x86_64"
-            echo "- Android API level: 25"
+            echo "- Android API level: 28"
             echo "- Runner: macOS 26 Intel (x86_64)"
             echo
             echo "## Detected boot/system files"
@@ -181,7 +181,7 @@ jobs:
             echo
             echo "## Experience UI APK compatibility"
             echo
-            echo "Android-x86 7.1 uses API level $ANDROID_API."
+            echo "Android-x86 9.0 uses API level $ANDROID_API."
             echo
             echo "| Module | APK minSdk | Result |"
             echo "|---|---:|---|"
@@ -218,7 +218,7 @@ jobs:
           } >> earthos/reports/audit-report.md
 
           if (( INCOMPATIBLE > 0 )); then
-            echo "::warning::$INCOMPATIBLE Experience UI APK(s) require a newer Android API than Android 7.1 (API 25). They must not be injected into this ISO as-is."
+            echo "::warning::$INCOMPATIBLE Experience UI APK(s) require a newer Android API than Android 7.1 (API 28). They must not be injected into this ISO as-is."
           fi
 
       - name: Publish audit summary
