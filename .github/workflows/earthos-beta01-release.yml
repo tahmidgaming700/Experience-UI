@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: earthos-beta01-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -82,6 +82,12 @@ jobs:
         run: |
           set -euo pipefail
           brew install xorriso squashfs imagemagick
+
+      - name: Validate build script syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n earthos/scripts/repack-android-x86.sh
 
       - name: Build application source modules from scratch
         shell: bash
