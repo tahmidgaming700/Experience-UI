@@ -24,7 +24,8 @@ jobs:
     runs-on: macos-26-intel
     timeout-minutes: 180
     env:
-      ISO_URL: https://mirrors.dotsrc.org/osdn/android-x86/71931/android-x86_64-9.0-r2.iso
+      ISO_URL: https://root.jorden.info/ISO/Android-x86/android-x86_64-9.0-r2.iso
+      ISO_FALLBACK_URL: https://sourceforge.net/projects/android-x86/files/Release%209.0/android-x86_64-9.0-r2.iso/download
       ISO_NAME: android-x86_64-9.0-r2.iso
       EXPECTED_ISO_SHA256: f7eb8fc56f29ad5432335dc054183acf086c539f3990f0b6e9ff58bd6df4604e
       RELEASE_TAG: earthos-beta-01
@@ -103,9 +104,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/earthos/base" dist
-          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 --speed-time 60 --speed-limit 100000 --max-time 900 --retry-delay 5 \
-            --output "$RUNNER_TEMP/earthos/base/$ISO_NAME" "$ISO_URL"
           ISO="$RUNNER_TEMP/earthos/base/$ISO_NAME"
+          if ! curl --fail --location --retry 2 --retry-all-errors --connect-timeout 30 --speed-time 45 --speed-limit 500000 --max-time 600 --retry-delay 5 \
+            --output "$ISO" "$ISO_URL"; then
+            echo "::warning::Primary Android-x86 mirror failed or was too slow; falling back to SourceForge."
+            rm -f "$ISO"
+            curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 --speed-time 45 --speed-limit 500000 --max-time 900 --retry-delay 5 \
+              --output "$ISO" "$ISO_FALLBACK_URL"
+          fi
           test -s "$ISO"
           SIZE="$(stat -f%z "$ISO")"
           if (( SIZE < 300000000 )); then
