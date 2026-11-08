@@ -1,25 +1,25 @@
 # EarthOS Beta 01
 
-**A migrational shift from Experience UI.**
+**A Migrational Shift from Experience UI.**
 
 EarthOS is the x86_64 Android operating-system project built from the Experience UI app ecosystem. It is not a GSI and is not an Android emulator.
 
 ## First base
 
-- ISO: Android-x86 7.1-r5
-- File: `android-x86_64-7.1-r5.iso`
+- ISO: Android-x86 9.0-r2
+- File: `android-x86_64-9.0-r2.iso`
 - Target architecture: x86_64
-- Android version: 7.1 / API level 25
+- Android version: 9.0 / API level 28
 - CI runner: GitHub-hosted `macos-26-intel` (x86_64)
 
 ## Beta 01 workflow
 
-The first workflow is deliberately an **audit, not yet an ISO repack**. It downloads the selected ISO, checks that the runner is x86_64, extracts and inventories the ISO, identifies the kernel/initrd/system image, builds the existing Experience UI APK modules, and compares each APK's minimum SDK with Android 7.1.
+The first workflow is deliberately an **audit, not yet an ISO repack**. It downloads the selected ISO, checks that the runner is x86_64, extracts and inventories the ISO, identifies the kernel/initrd/system image, builds the existing Experience UI APK modules, and compares each APK's minimum SDK with Android 9.0.
 
 Run it from GitHub:
 
 1. Open the repository's **Actions** tab.
-2. Select **EarthOS Beta 01 — Android-x86 7.1 audit**.
+2. Select **EarthOS Beta 01 — Android-x86 9.0 audit**.
 3. Select the `earthos/beta-01-audit` branch.
 4. Choose **Run workflow**.
 5. Download the `earthos-beta-01-base-audit` artifact when it finishes.
@@ -28,11 +28,11 @@ No terminal, WSL, or local build environment is required.
 
 ## Compatibility gate — important
 
-The current Experience UI app modules declare `minSdk = 28` (Android 9), while Android-x86 7.1 is API 25. Those APKs cannot be installed on Android 7.1 unchanged. The audit workflow reports this instead of silently placing incompatible APKs into the ISO.
+The current Experience UI app modules declare `minSdk = 28` (Android 9), while Android-x86 7.1 is API 28. Those APKs cannot be installed on Android 9.0 unchanged. The audit workflow reports this instead of silently placing incompatible APKs into the ISO.
 
 Before producing a bootable EarthOS image, we must choose and validate one of these paths:
 
-- Port the Experience UI apps and their dependencies back to API 25, module by module; or
+- Port the Experience UI apps and their dependencies back to API 28, module by module; or
 - Select a newer Android-x86 base that meets the apps' minimum API requirements.
 
 Do not lower `minSdk` mechanically: API calls, AndroidX/Compose dependency requirements, manifest features and runtime behaviour must all be checked.
