@@ -59,8 +59,18 @@ jobs:
       - name: Install Android SDK platform and build tools
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+          # sdkmanager may exit as soon as all licences are accepted, causing
+          # yes to receive SIGPIPE. Ignore that producer exit, but preserve
+          # sdkmanager's actual exit status.
+          set +o pipefail
           yes | sdkmanager --licenses >/dev/null
+          LICENSE_STATUS=${PIPESTATUS[1]}
+          set -o pipefail
+          if (( LICENSE_STATUS != 0 )); then
+            echo "::error::Android SDK licence acceptance failed (sdkmanager exit $LICENSE_STATUS)."
+            exit "$LICENSE_STATUS"
+          fi
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Verify runner architecture and available disk
