@@ -15,9 +15,12 @@ IMAGE="$WORK_ROOT/earthos-work.sparseimage"
 MOUNT="$WORK_ROOT/mnt"
 mkdir -p "$MOUNT"
 if [[ ! -f "$IMAGE" ]]; then
-  hdiutil create -quiet -size 24g -type SPARSE -fs APFSX -volname EARTHOS_WORK "$IMAGE"
+  echo "Creating a 24 GB sparse, case-sensitive APFS work volume."
+  hdiutil create -size 24g -type SPARSE -fs APFSX -volname EARTHOS_WORK "$IMAGE"
 fi
-hdiutil attach -quiet -nobrowse -mountpoint "$MOUNT" "$IMAGE"
+echo "Attaching case-sensitive work volume at $MOUNT."
+hdiutil attach -nobrowse -mountpoint "$MOUNT" "$IMAGE"
+df -h "$MOUNT"
 cleanup() { hdiutil detach -quiet "$MOUNT" || true; }
 trap cleanup EXIT
 
