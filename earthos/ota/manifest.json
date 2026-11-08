@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "project": "EarthOS",
+  "channel": "beta",
+  "manifest_url": "https://github.com/tahmidgaming700/Experience-UI/releases/download/earthos-beta-01/ota-manifest.json",
+  "release_url": "https://github.com/tahmidgaming700/Experience-UI/releases/tag/earthos-beta-01",
+  "manifest_asset": "ota-manifest.json",
+  "package_type": "full_iso",
+  "notes": "Fetch the release manifest asset for the exact ISO URL, byte size, and SHA-256 checksum. Beta 01 is a full x86_64 installation image, not an incremental Android OTA."
+}

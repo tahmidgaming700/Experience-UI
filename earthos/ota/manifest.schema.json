@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tahmidgaming700/Experience-UI/blob/main/earthos/ota/manifest.schema.json",
+  "title": "EarthOS OTA Release Manifest",
+  "type": "object",
+  "required": ["schema_version", "project", "channel", "version", "android_base", "android_api", "architecture", "package", "source"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project": {"const": "EarthOS"},
+    "channel": {"enum": ["beta", "stable"]},
+    "version": {"type": "string"},
+    "build_id": {"type": "string"},
+    "android_base": {"type": "string"},
+    "android_api": {"type": "integer"},
+    "architecture": {"const": "x86_64"},
+    "package": {
+      "type": "object",
+      "required": ["type", "filename", "url", "sha256", "size_bytes"],
+      "properties": {
+        "type": {"const": "full_iso"},
+        "filename": {"type": "string"},
+        "url": {"type": "string", "format": "uri"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["repository", "ref", "archive_url"],
+      "properties": {
+        "repository": {"type": "string"},
+        "ref": {"type": "string"},
+        "archive_url": {"type": "string", "format": "uri"}
+      }
+    },
+    "release_notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280" viewBox="0 0 720 1280">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#081522"/><stop offset=".6" stop-color="#102b38"/><stop offset="1" stop-color="#071018"/></linearGradient>
+    <radialGradient id="planet" cx="35%" cy="30%" r="75%"><stop stop-color="#b8f1df"/><stop offset=".4" stop-color="#42b7a0"/><stop offset="1" stop-color="#17616b"/></radialGradient>
+  </defs>
+  <rect width="720" height="1280" fill="url(#bg)"/>
+  <circle cx="360" cy="520" r="250" fill="#36b89d" opacity=".08"/>
+  <ellipse cx="360" cy="520" rx="250" ry="80" fill="none" stroke="#8bdcc8" stroke-opacity=".65" stroke-width="4" transform="rotate(-24 360 520)"/>
+  <circle cx="360" cy="520" r="150" fill="url(#planet)"/>
+  <path d="M245 500 Q300 410 370 450 T485 470 Q425 545 450 585 Q355 630 295 570Z" fill="#0e5660" opacity=".4"/>
+  <g fill="#e8f4f1" font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+    <text x="360" y="790" font-size="68" font-weight="700" letter-spacing="5">EarthOS</text>
+    <text x="360" y="850" font-size="24" letter-spacing="8" fill="#83cbbb">BETA 01</text>
+  </g>
+</svg>
