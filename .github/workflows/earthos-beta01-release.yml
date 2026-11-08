@@ -24,8 +24,9 @@ jobs:
     runs-on: macos-26-intel
     timeout-minutes: 180
     env:
-      ISO_URL: https://sourceforge.net/projects/android-x86/files/Release%209.0/android-x86_64-9.0-r2.iso/download
+      ISO_URL: https://mirrors.dotsrc.org/osdn/android-x86/71931/android-x86_64-9.0-r2.iso
       ISO_NAME: android-x86_64-9.0-r2.iso
+      EXPECTED_ISO_SHA256: f7eb8fc56f29ad5432335dc054183acf086c539f3990f0b6e9ff58bd6df4604e
       RELEASE_TAG: earthos-beta-01
       RELEASE_VERSION: 1.0.0-beta.1
 
@@ -113,7 +114,12 @@ jobs:
             exit 1
           fi
           file "$ISO"
-          shasum -a 256 "$ISO" | tee dist/base-iso.sha256
+          ACTUAL_SHA256="$(shasum -a 256 "$ISO" | awk '{print $1}')"
+          if [[ "$ACTUAL_SHA256" != "$EXPECTED_ISO_SHA256" ]]; then
+            echo "::error::Android-x86 9.0-r2 ISO checksum mismatch. Expected $EXPECTED_ISO_SHA256, got $ACTUAL_SHA256."
+            exit 1
+          fi
+          printf '%s  %s\\n' "$ACTUAL_SHA256" "$ISO_NAME" | tee dist/base-iso.sha256
           echo "Base ISO size: $SIZE bytes" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Extract, brand, and rebuild EarthOS ISO
